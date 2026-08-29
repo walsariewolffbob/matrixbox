@@ -13,6 +13,8 @@ Some main changes are moving around of options, making options show conditionall
 To test if I can - and I apparently could - I made a new view to show deparutres. It is based on the old(? idk, haven't been in a while) DLR departure screens in London. 
 Basically testing the water before moving on to a major new view which I had planned.
 
+> The view is made for the X-size box, which is the one I have. It is not tested on other sizes, so might very well come out looking bad. It's still my playground here :-p
+
 ## Scrolling text
 
 On the actual Stockholm Tub, sometimes scrolling text comes past for disruptions. I added that functionality to the Classic SL view the Departures app natively has.
