@@ -1,4 +1,4 @@
-## MatrixBox - Fork
+# MatrixBox - Fork
 
 
 Oh hello!
@@ -9,7 +9,7 @@ That and the scroll text app pretty much the only ones I use on my system, so th
 
 
 
-# The official repository
+## The official repository
 If you wish to contribute to the official repository (the system, apps, UI) drop us a message through one of our channels.
 
 Instagram: @matrixbox.app<br>
