@@ -54,18 +54,14 @@ def check_button():
             varinit.time.sleep(varinit.debounce_delay)
             if not varinit.button.value:
                 varinit.shared["nightcount"] = 0
-                x = 0 
-                while not varinit.button.value and x < varinit.button_delay * 2: x+=1
+                x = 0
+                while not varinit.button.value and x < varinit.button_delay * 2:
+                    x += 1
                 if x > varinit.button_delay and not varinit.group.hidden:
                     varinit.exit = True
                 else:
-                    if int(varinit.settings.get("button_mode", 0)):
-                        varinit.deviations_timer = time.monotonic()
-                        if varinit.display.width > 64 and varinit.display.height <= 32:
-                            varinit.settings["listmode"] = 1 - int(varinit.settings["listmode"])
-                        switch(_screen=True)
-                    else:
-                        nightcheck(_switch=True, turnon=varinit.group.hidden); refresh()
+                    nightcheck(_switch=True, turnon=varinit.group.hidden)
+                    refresh()
     varinit.last_button_state = varinit.button.value
 
 def check_timer():
@@ -118,24 +114,106 @@ def sysprint(_string, line, color=True, cls=False, shading=False, _refresh=True,
     time.sleep(_delay)
 
 def switch(_screen=True, _cls=False, force=False, wifi_screen=False):
-    def bounce(direction):
-        for x in range(32):
-            varinit.tg1.y -= -direction
-            varinit.tg2.y -= -direction
-            varinit.tg3.y -= -direction
-            refresh()
-    if _cls: cls(_cls)
-    if _screen: 
+    if _cls:
+        cls(_cls)
+
+    if _screen:
         direction = -1 if force and not varinit.tg3.y == 0 or not varinit.tg3.y == 0 else 1
-        if direction == -1: 
+
+        if direction == -1:
             cls(topbottom)
-            if not force: list_splash(_settings=varinit.shared["startup"])
-            if wifi_screen: update_screen()
-        else: 
-            renderstring(varinit.text[4]+ varinit.settings["stations"]["1"]["mystation"][:16], 1, 0,large=True, _cls=top)
-        bounce(direction)
+
+            if not force:
+                list_splash(_settings=varinit.shared["startup"])
+
+            if wifi_screen:
+                update_screen()
+
+            # Instant switch to scroll/display screen
+            varinit.tg1.y = 0
+            varinit.tg2.y = 16
+            varinit.tg3.y = 32
+
+        else:
+            renderstring(
+                varinit.text[4] + varinit.settings["stations"]["1"]["mystation"][:16],
+                1, 0, large=True, _cls=top
+            )
+
+            # Instant switch to list/loading screen
+            varinit.tg1.y = -32
+            varinit.tg2.y = -16
+            varinit.tg3.y = 0
+
+        refresh()
+
     cls(bottom, _refresh=True)
     reset_scroll()
+
+def view_switch_loading(_delay=2.0):
+    """Show the existing station/direction splash briefly during a View change."""
+    # The real MatrixBOX already uses the full-screen list surface as its
+    # transition/splash surface. Make that transition deterministic for all
+    # three views instead of depending on whichever TileGrid happened to be
+    # visible before the change.
+    try:
+        varinit.tg1.x = 0
+        varinit.tg2.x = 0
+        varinit.tg3.x = 0
+    except: pass
+    cls(topbottom)
+    varinit.tg1.y, varinit.tg2.y, varinit.tg3.y = -32, -16, 0
+    list_splash(_settings=False)
+    refresh()
+    if _delay:
+        time.sleep(_delay)
+
+def rebuild_current_view():
+    """Enter the selected View from a clean display state.
+
+    This is application logic used by the real MatrixBOX and by the desktop
+    emulator. Renderer transitions must be correct here rather than relying on
+    emulator-specific bitmap cleanup.
+    """
+    # Clear stale scroll positions/string buffers when crossing renderers.
+    try:
+        varinit.tg1.x = 0
+        varinit.tg2.x = 0
+        varinit.tg3.x = 0
+    except: pass
+    varinit.shared["scroll_timer"] = 0
+    varinit.shared["loop_counter"] = 0
+    # Do not inherit the font selected by the renderer we are leaving.
+    # Classic/DLR both assume the normal large font at renderer entry.
+    try: varinit.currentfont = 0
+    except: pass
+    try: cls(top)
+    except: pass
+    try: cls(bottom)
+    except: pass
+    try: cls(topbottom)
+    except: pass
+
+    mode = int(varinit.settings.get("listmode", 0))
+    if mode == 2:
+        reset_dlr_message_cycle()
+        return dlr_mode()
+    if mode == 1:
+        return list_mode()
+
+    # Classic owns the two 16px bitmaps and its lower ticker begins off-screen.
+    # Establish that complete state here, then force the normal Classic renderer
+    # to fetch/draw its first departure immediately.
+    varinit.tg1.y, varinit.tg2.y, varinit.tg3.y = 0, 16, 32
+    varinit.tg1.x, varinit.tg3.x = 0, 0
+    varinit.tg2.x = varinit.if_long
+    varinit.currentfont = 0
+    varinit.shared["loop_counter"] = 0
+    try:
+        varinit.shared["scroll_timer"] = time.monotonic() - updatedelay - 1
+    except:
+        varinit.shared["scroll_timer"] = -999999
+    return scroll_mode()
 
 def load_text():
     
@@ -423,7 +501,32 @@ def fetch_data(host, port=80, args="", headers = "", filetype="text"):
     return data
 
 def sort_by_minutes(lst):
-    def get_minutes(sub_lst): return int(sub_lst[3].split()[0])
+    def get_minutes(sub_lst):
+        value = str(sub_lst[3]).strip().lower()
+
+        if value == "nu":
+            return 0
+
+        if ":" in value:
+            try:
+                hour, minute = value.split(":")[:2]
+                departure_minutes = int(hour) * 60 + int(minute)
+
+                now = time.localtime(varinit.currenttime)
+                current_minutes = now.tm_hour * 60 + now.tm_min
+
+                difference = departure_minutes - current_minutes
+                if difference < -720:
+                    difference += 1440
+                return difference
+            except:
+                return 9999
+
+        try:
+            return int(value.split()[0])
+        except:
+            return 9999
+
     lst.sort(key=get_minutes)
     return lst
 
@@ -454,7 +557,15 @@ def traffic_parser(data, traffic_type, num="1"):
     print(" >>", traffic_type)
     dataout = []
     _maxdest = int(varinit.settings["maxdest"])
-    if int(varinit.settings["listmode"]): _maxdest = varinit.if_tall // 8
+    _view_mode = int(varinit.settings.get("listmode", 0))
+    if _view_mode == 2:
+        # TfL DLR has exactly three visible departure slots.
+        _maxdest = 3
+    elif _view_mode == 1:
+        # SL List on the 128x32 departures display has exactly four visible rows.
+        _maxdest = 4
+    elif _view_mode:
+        _maxdest = varinit.if_tall // 8
     #show_lines = varinit.settings["show_lines"]
     #has_line_filter = isinstance(show_lines, list) and len(show_lines) > 0
     clocktime = varinit.settings["clocktime"]
@@ -465,7 +576,10 @@ def traffic_parser(data, traffic_type, num="1"):
             return [["1", data["msg"], "***","",""]]
     except: pass
     for all in data["departures"]:
-        if len(dataout) > _maxdest: break
+        if _view_mode == 2:
+            if len(dataout) >= _maxdest: break
+        elif len(dataout) > _maxdest:
+            break
         line = all["line"]
         if traffic_type != line["transport_mode"]: continue
         if traffic_type == "BUS" and stn["operator"] == "sl" and night_buses_only:
@@ -476,15 +590,26 @@ def traffic_parser(data, traffic_type, num="1"):
             if not all["line"]["id"].lower() in varinit.settings["show_lines"]: continue
         difference = _converttime(all["expected"]) - varinit.currenttime
         if difference < 0: continue
-        minsleft = str(round(difference/60))
-        if int(minsleft[:2]) > offset:  
+        minsleft = str(round(difference / 60))
+        if int(minsleft[:2]) > offset:
             if line["transport_mode"] == "ZET":
                 if int(line["id"]) < 18:
                     line["transport_mode"] = "TRAM"
                 else: line["transport_mode"] = "BUS"
 
             if not int(all["direction_code"]) or not int(direction) or int(direction) == int(all["direction_code"]):
-                _minsleft = str(all["expected"].split("T")[1][:5]) if clocktime else minsleft
+                departure_time = str(all["expected"].split("T")[1][:5])
+
+                if int(clocktime) == 1:
+                    _minsleft = departure_time
+                elif difference < 60:
+                    _minsleft = "Nu"
+                elif int(clocktime) == 2:
+                    _minsleft = minsleft
+                elif difference > 30 * 60:
+                    _minsleft = departure_time
+                else:
+                    _minsleft = minsleft
                 if line["id"] == "0": line["id"] = ""
                 try: 
                     delay = all["deviations"][0] if rt_indicator else ""
@@ -559,8 +684,8 @@ def get_departure(num = "1", dataout = [["1", "^ Data error","","",""]]):
         print("■", varinit.settings["stations"][num]["mystation"], varinit.settings["stations"][num]["siteid"])
         for t_types in varinit.traffic_dict:
             if varinit.settings["stations"][num][t_types]: dataout.extend(traffic_parser(data, t_types, num))
-        if not varinit.settings["clocktime"]: dataout = sort_by_minutes(dataout)[slice(varinit.settings["maxdest"])]
-        else: dataout = sort_by_hours(dataout)[slice(varinit.settings["maxdest"])]
+        if int(varinit.settings.get("clocktime", 0)) == 1: dataout = sort_by_hours(dataout)[slice(varinit.settings["maxdest"])]
+        else: dataout = sort_by_minutes(dataout)[slice(varinit.settings["maxdest"])]
         print(*dataout, sep='\n')
     except Exception as e: 
         print(e)
@@ -588,8 +713,8 @@ def merge_departures(nums):
     if not combined:
         if fallback_msg: return fallback_msg
         return [["1", dicts.language[varinit.settings["language"]]["display"]["no_more_departures"], "***", "", ""]]
-    if not varinit.settings["clocktime"]: combined = sort_by_minutes(combined)
-    else: combined = sort_by_hours(combined)
+    if int(varinit.settings.get("clocktime", 0)) == 1: combined = sort_by_hours(combined)
+    else: combined = sort_by_minutes(combined)
     return combined[slice(varinit.settings["maxdest"])]
 
 def abbreviate_dest(text, max_px):
@@ -604,10 +729,16 @@ def abbreviate_dest(text, max_px):
     return text
 
 def reformat_data(trainlist):
+    def format_departure_value(value):
+        value = str(value)
+        if int(varinit.settings.get("clocktime", 0)) != 1 and value.strip().isdigit():
+            return value + varinit.settings["mins"]
+        return value
+
     def top_screen_filter(tlist):
         try: tlist[1] = tlist[1][:varinit.settings["line_length"]]
         except: pass
-        if not varinit.settings["clocktime"]: tlist[3] += varinit.settings["mins"]
+        tlist[3] = format_departure_value(tlist[3])
         spacing = "((((((((("
         if varinit.if_long == 128:
             spacing = "((("
@@ -658,6 +789,9 @@ def reformat_data(trainlist):
         #    renderstring(tlist[1] + spacing + tlist[2], 1)
         
         offs = max(0, varinit.if_long - strlen(tlist[3]))
+        # SL Classic: capital "Nu" needs one extra pixel at the right edge.
+        if str(tlist[3]).strip().lower() == "nu":
+            offs = max(0, offs - 1)
         renderstring(offs*"(" + tlist[3], 1)
         renderstring(tlist[1] + spacing + tlist[2], 1)
 
@@ -670,7 +804,7 @@ def reformat_data(trainlist):
         return varinit.text[6]
     if trainlist[0][0] == "1": return trainlist[0][1] + "  " + trainlist[0][2] + "  " + trainlist[0][3]  
     elif int(varinit.settings["listmode"]): return trainlist
-    else: return long_buffer + "         ".join(["  ".join([a[1][:varinit.settings["line_length"]] + (spacing * 2), a[2] + (6 * spacing), a[3] + (varinit.settings["mins"] if not varinit.settings["clocktime"] else "") + (spacing * 10)]) for a in top_screen_filter(trainlist[0])])
+    else: return long_buffer + "         ".join(["  ".join([a[1][:varinit.settings["line_length"]] + (spacing * 2), a[2] + (6 * spacing), format_departure_value(a[3]) + (spacing * 10)]) for a in top_screen_filter(trainlist[0])])
 
 def renderstring(_string, screen_partition = 0, min = 0, slow = 0, invertcolor = 0, shading=False, smallfont=False, sys_msg=False, shade=False, large=False, _cls=False, _refresh=False, ontop=False, block=False, logo=False, mini=False, start_x=0, clip_x=None, target_bmp=None, target_offs=None):
     
@@ -777,7 +911,79 @@ def renderstring(_string, screen_partition = 0, min = 0, slow = 0, invertcolor =
     if sys_msg: varinit.currentfont = font_before
     return(pixwidth)
 
+def custom_scroll_available():
+    # Custom free text is an SL Classic-only feature.
+    if int(varinit.settings.get("listmode", 0)):
+        return False
+    if not int(varinit.settings.get("custom_scroll_show", 0)):
+        return False
+    return bool(str(varinit.settings.get("custom_scroll_text", "")).strip())
+
+
+def render_departure_scroll():
+    # SL Classic ticker. When custom text is enabled, both parts are rendered
+    # into the SAME bitmap with one full display-width of blank space between
+    # them. Another full display-width is added to scrollsum after the final
+    # item so the last text can fully clear the display before the ticker is
+    # rebuilt with fresh departures.
+    _departure_text = reformat_data(get_departure())
+
+    if custom_scroll_available():
+        _custom_text = str(varinit.settings.get("custom_scroll_text", "")).strip()
+        _position = int(varinit.settings.get("custom_scroll_position", 0))
+
+        _third_gap = max(1, varinit.if_long // 3)
+
+        if _position == 1:  # Before departures
+            # Custom text is the first scrolling item after every rebuild.
+            # A third-screen gap is enough before departure 2 enters.
+            _custom_end = renderstring(_custom_text, large=True)
+            _departure_start = _custom_end + _third_gap
+            _ticker_end = renderstring(_departure_text, large=True, start_x=_departure_start)
+            print("CUSTOM SCROLL prepended:", _custom_text)
+
+        elif _position == 2:  # After first scrolling departure
+            # Departure 1 is already on the fixed top row. The bottom ticker
+            # therefore begins with departure 2. Split that first ticker item
+            # off, insert the custom message, then continue with departures 3+.
+            _parts = _departure_text.split("         ", 1)
+            _first_departure = _parts[0]
+            _remaining_departures = _parts[1] if len(_parts) > 1 else ""
+
+            _first_end = renderstring(_first_departure, large=True)
+            _custom_start = _first_end + _third_gap
+            _custom_end = renderstring(_custom_text, large=True, start_x=_custom_start)
+
+            if _remaining_departures:
+                _remaining_start = _custom_end + _third_gap
+                _ticker_end = renderstring(_remaining_departures, large=True, start_x=_remaining_start)
+            else:
+                _ticker_end = _custom_end
+            print("CUSTOM SCROLL after first:", _custom_text)
+
+        else:  # After departures
+            _departure_end = renderstring(_departure_text, large=True)
+            _custom_start = _departure_end + varinit.if_long
+            _ticker_end = renderstring(_custom_text, large=True, start_x=_custom_start)
+            print("CUSTOM SCROLL appended:", _custom_text)
+
+        # Deliberate blank tail: do not rebuild while the final text is still
+        # visible or just touching the left edge.
+        return _ticker_end + varinit.if_long
+
+    return renderstring(_departure_text, large=True)
+
+
 def scroll_mode():
+    # Renderer-transition guard. A previously scheduled Classic tick can fire
+    # just after the View setting changes. Never let Classic process the raw
+    # departure list that List/DLR modes intentionally return.
+    _mode = int(varinit.settings.get("listmode", 0))
+    if _mode == 2:
+        return dlr_mode()
+    if _mode == 1:
+        return list_mode()
+
     if varinit.matrix.height == 64: microcontroller.cpu.frequency = 180000000
     if varinit.if_long > 128: version_delay(slowdown=2)
     nightcheck()
@@ -843,8 +1049,8 @@ def scroll_mode():
                     if ad: 
                         varinit.scrollsum = renderstring(reformat_data([["1", ad,"***","",""]]), large=True, _cls=bottom)
                         varinit.active_message = True
-                    else: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
-                except: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
+                    else: varinit.scrollsum = render_departure_scroll()
+                except: varinit.scrollsum = render_departure_scroll()
             
             elif time.monotonic() > varinit.deviations_timer + (varinit.deviations_delay * 60) \
                 and int(varinit.settings["show_msgs"]) and varinit.shared["nightcount"] < 2 \
@@ -853,7 +1059,7 @@ def scroll_mode():
                 except: varinit.scrollsum = renderstring(reformat_data([["1", " ","***","",""]]), large=True, _cls=bottom)
                 varinit.deviations_timer = time.monotonic()
                 varinit.active_message = True
-            else: varinit.scrollsum = renderstring(reformat_data(get_departure()), large=True)
+            else: varinit.scrollsum = render_departure_scroll()
             rnd = random.randint(0, 10)
             varinit.shared["scroll_timer"] = time.monotonic() + rnd
             print("RND: ", rnd)
@@ -887,7 +1093,472 @@ def apply_clock_row(trainlist):
         kept.append(clock_row)
     return kept
 
+
+def _font_width(text, font_index):
+    f = fonts[font_index]
+    total = 0
+    for c in str(text):
+        if c not in f: c = "_"
+        total += f[c][0] if isinstance(f[c][1], int) else len(f[c][1])
+    return total
+
+def _dlr_upper(text):
+    """CircuitPython-safe uppercase for Swedish DLR text.
+
+    Some MatrixBOX/CircuitPython builds uppercase ASCII but leave å/ä/ö
+    unchanged when those characters occur inside a word.  Apply normal
+    uppercasing first, then explicitly promote the Swedish glyphs so the
+    emulator and real matrix render identically.
+    """
+    text = str(text).upper()
+    return text.replace("å", "Å").replace("ä", "Ä").replace("ö", "Ö")
+
+
+def _dlr_abbreviate_dest(text, max_px, font_index, uppercase=False):
+    """Apply DLR destination abbreviations using the width actually rendered."""
+    raw_text = str(text)
+    text = raw_text
+
+    def _fits(candidate):
+        rendered = _dlr_upper(candidate) if uppercase else str(candidate)
+        return _font_width(rendered, font_index) <= max_px
+
+    if _fits(text):
+        return text
+
+    # User-configured abbreviations first, matching the existing list renderer.
+    for pair in varinit.settings.get("dest_abbrev", []):
+        if not isinstance(pair, list) or len(pair) != 2:
+            continue
+        long, short = pair
+        if long and long in text:
+            text = text.replace(long, short)
+            if _fits(text):
+                return text
+
+    # Generic built-in replacements from dicts.py.
+    for pair in dicts.replace_list_destinations:
+        try:
+            long, short = pair
+        except:
+            continue
+        if long and long in text:
+            text = text.replace(long, short)
+            if _fits(text):
+                return text
+
+    # Exact station-name abbreviations are keyed by the original destination,
+    # not by the partially transformed generic-replacement string.
+    try:
+        mapped = station_names_dict.get(raw_text)
+    except:
+        mapped = None
+    if mapped and _fits(mapped):
+        return mapped
+
+    # If the exact station mapping exists but still cannot fully fit, keep it as
+    # the preferred fallback; the final character clipper will trim from there
+    # rather than from the un-abbreviated destination.
+    if mapped:
+        return mapped
+
+    return text
+
+def _dlr_clock_string():
+    """Fixed DLR overlay clock: always HH:MM, never date/alignment decoration."""
+    t = time.localtime(varinit.currenttime)
+    def _z(n):
+        s = str(n)
+        return "0" + s if len(s) == 1 else s
+    return _z(t[3]) + ":" + _z(t[4])
+
+def refresh_clock_settings_now():
+    """Immediately rebuild List/DLR after a clock web-setting change.
+
+    This is departures-app behavior, so the same update path is used on the
+    physical MatrixBOX and in the desktop emulator.
+    """
+    if int(varinit.settings.get("listmode", 0)) not in (1, 2):
+        return
+    varinit.shared["force_view_rebuild"] = 0
+    rebuild_current_view()
+
+def refresh_dlr_settings_now():
+    """Backward-compatible alias for older web handlers."""
+    refresh_clock_settings_now()
+
+
+
+def _dlr_scroll_delay_seconds():
+    """Return the configured DLR lower-half dwell time in seconds."""
+    try:
+        delay = int(varinit.settings.get("dlr_scroll_delay", 15))
+    except:
+        delay = 15
+    # Keep accidental web/settings values sane without making the UI restrictive.
+    return max(1, min(300, delay))
+
+def reset_dlr_message_cycle():
+    """Reset the DLR lower-half message cycle to its configured dwell."""
+    varinit.dlr_message_state = {
+        "phase": "normal",
+        "normal_since": time.monotonic(),
+        "last_step": 0,
+        "message": "",
+        "message_width": 0,
+    }
+    try:
+        varinit.tg2.x = 0
+        varinit.tg2.y = 16
+    except:
+        pass
+
+def dlr_message_active():
+    """True while the DLR lower half is sliding away or scrolling a message."""
+    try:
+        return varinit.dlr_message_state.get("phase", "normal") != "normal"
+    except:
+        return False
+
+def _dlr_custom_message():
+    if not int(varinit.settings.get("custom_scroll_show", 0)):
+        return ""
+    return str(varinit.settings.get("custom_scroll_text", "")).strip()
+
+def _dlr_scroll_content_mode():
+    """Return DLR's exclusive message source using the existing settings.
+
+    Custom wins for legacy settings files where both switches happened to be on;
+    the web UI now keeps them mutually exclusive.
+    """
+    if int(varinit.settings.get("custom_scroll_show", 0)):
+        return "custom"
+    if int(varinit.settings.get("show_msgs", 0)):
+        return "disruptions"
+    return "none"
+
+def _dlr_next_message():
+    """Choose the next DLR lower-half message from the selected source."""
+    _content_mode = _dlr_scroll_content_mode()
+    if _content_mode == "none":
+        return ""
+    if _content_mode == "custom":
+        return _dlr_custom_message()
+
+    now = time.monotonic()
+
+    try:
+        _operator = varinit.settings["stations"]["1"]["operator"]
+    except:
+        _operator = ""
+
+    if (varinit.shared.get("nightcount", 0) < 2
+            and _operator in ("sl", "vt")
+            and now > varinit.deviations_timer + (varinit.deviations_delay * 60)):
+        try:
+            msg = str(get_deviations()).strip()
+            varinit.deviations_timer = now
+            if msg:
+                return msg
+        except Exception as e:
+            print("DLR disruption message error:", repr(e))
+            # Match Classic behavior: even a failed fetch should not hammer the
+            # endpoint on every animation frame.
+            varinit.deviations_timer = now
+
+    return ""
+
+def refresh_dlr_message_settings_now():
+    """Rebuild DLR and restart the configured message dwell after web changes."""
+    if int(varinit.settings.get("listmode", 0)) != 2:
+        return
+    reset_dlr_message_cycle()
+    varinit.shared["force_view_rebuild"] = 0
+    dlr_mode()
+    varinit.shared["scroll_timer"] = time.monotonic()
+
+def dlr_animation_tick():
+    """Animate the DLR lower-half message cycle one small step.
+
+    Normal rows 2+3 (and the optional clock) remain for the configured delay.
+    If a custom or native disruption message is available, the lower TileGrid slides
+    downward, the message scrolls horizontally through the lower half, and the
+    normal DLR rows are rebuilt when it has completely passed.
+    """
+    if int(varinit.settings.get("listmode", 0)) != 2:
+        return False
+
+    try:
+        state = varinit.dlr_message_state
+        if not isinstance(state, dict):
+            raise TypeError
+    except:
+        reset_dlr_message_cycle()
+        state = varinit.dlr_message_state
+
+    now = time.monotonic()
+    phase = state.get("phase", "normal")
+
+    if phase == "normal":
+        if now < float(state.get("normal_since", now)) + _dlr_scroll_delay_seconds():
+            return False
+
+        msg = _dlr_next_message()
+        # Do not repeatedly test/fetch every main-loop iteration when nothing is
+        # available. Start another normal configured dwell instead.
+        state["normal_since"] = now
+        if not msg:
+            return False
+
+        state["phase"] = "slide_down"
+        state["message"] = msg
+        state["last_step"] = 0
+        return True
+
+    # Around 30 fps is plenty for a 16-pixel vertical transition and keeps the
+    # physical MatrixBOX responsive to its normal networking/web work.
+    if now < float(state.get("last_step", 0)) + 0.03:
+        return False
+    state["last_step"] = now
+
+    if phase == "slide_down":
+        try:
+            varinit.tg2.y += 1
+            refresh(1)
+        except:
+            pass
+
+        if varinit.tg2.y >= 32:
+            # Lower departures + clock are now fully below the 32px display.
+            # Reuse that same lower bitmap as a normal large-font ticker.
+            varinit.tg2.y = 16
+            varinit.tg2.x = varinit.if_long
+            cls(bottom)
+            state["message_width"] = renderstring(
+                state.get("message", ""), large=True, _cls=bottom
+            )
+            state["phase"] = "scroll_message"
+            refresh(1)
+        return True
+
+    if phase == "scroll_message":
+        try:
+            varinit.tg2.x -= 1
+            refresh(1)
+        except:
+            pass
+
+        if varinit.tg2.x < -int(state.get("message_width", 0)):
+            # Restore the normal DLR lower half. dlr_mode() also redraws the top
+            # departure, so data stays fresh after a potentially long message.
+            varinit.tg2.x = 0
+            varinit.tg2.y = 16
+            state["phase"] = "normal"
+            state["normal_since"] = now
+            state["message"] = ""
+            state["message_width"] = 0
+            dlr_mode()
+            varinit.shared["scroll_timer"] = time.monotonic()
+        return True
+
+    reset_dlr_message_cycle()
+    return False
+
+def dlr_mode():
+    """TfL DLR layout: one large departure on top, two compact departures below."""
+    try:
+        _dlr_phase = varinit.dlr_message_state.get("phase", "normal")
+    except:
+        reset_dlr_message_cycle()
+        _dlr_phase = "normal"
+    # DLR physically has three departure rows. Keep the app setting consistent
+    # even when the mode was loaded from saved settings rather than selected in the UI.
+    varinit.settings["maxdest"] = 3
+    nightcheck()
+    # renderstring() changes currentfont. DLR has mixed large/small rows, so always
+    # begin from a known font state instead of inheriting the previous renderer.
+    varinit.currentfont = 0
+
+    # DLR uses the same physical 16px + 16px screen arrangement as SL Classic.
+    # Keep the normal top/bottom TileGrids visible and hide the full-screen list bitmap.
+    varinit.tg1.y, varinit.tg2.y, varinit.tg3.y = 0, 16, 32
+    # Classic scroll moves tg2.x continuously. Never inherit that offset in DLR.
+    varinit.tg1.x, varinit.tg2.x, varinit.tg3.x = 0, 0, 0
+
+    if varinit.shared["loop_counter"] == -7:
+        reset()
+
+    trainlist = reformat_data(get_departure())
+    if not isinstance(trainlist, list) or not trainlist:
+        cls(top)
+        cls(bottom, _refresh=True)
+        return time.monotonic()
+
+    rows = [row[:] for row in trainlist[:3] if isinstance(row, list) and len(row) >= 4]
+    cls(top)
+    cls(bottom)
+
+    # DLR clock is an overlay, not a replacement departure.  Reserve its large-font
+    # footprint on the right of the lower 16px and leave exactly 2 blank columns
+    # between the row-2/3 time markers and the clock.
+    _show_dlr_clock = int(varinit.settings.get("show_clock_row", 0))
+    _dlr_clock = _dlr_clock_string() if _show_dlr_clock else ""
+    _dlr_clock_x = max(0, varinit.if_long - _font_width(_dlr_clock, 0)) if _show_dlr_clock else varinit.if_long
+    _lower_value_right = max(0, _dlr_clock_x - 2) if _show_dlr_clock else varinit.if_long
+
+    def _draw_row(row, number, bmp, y, font_index):
+        prefix = str(number) + " "
+        raw_dest = str(row[2]).split('(')[0].split(" via")[0].strip()
+        dest = raw_dest
+        value = str(row[3])
+
+        # reformat_data() already applies Dynamic / Time / Countdown logic.
+        # Only add the configured minute suffix when the returned value is numeric.
+        if int(varinit.settings.get("clocktime", 0)) != 1 and value.strip().isdigit():
+            value += varinit.settings["mins"]
+
+        # Lower DLR rows are rendered in capitals.  Do this BEFORE measuring the
+        # time/value field: uppercase glyphs can be wider than their lowercase
+        # counterparts, and the destination must be fitted around the pixels we
+        # will actually draw.
+        if number != 1:
+            value = _dlr_upper(value)
+
+        value_right = varinit.if_long if number == 1 else _lower_value_right
+        if number != 1 and not _show_dlr_clock:
+            # The small-font right edge is one pixel tighter than the large top
+            # row.  Keep the final column on-screen instead of clipping it.
+            value_right = max(0, value_right - 1)
+
+        actual_value_width = _font_width(value, font_index)
+        is_now = value.strip().lower() == "nu"
+
+        # Rows 2/3 keep a stable value slot for a given departure.  Once a wider
+        # minute/time marker has reserved space, NU does not reclaim those pixels.
+        # This keeps both the destination abbreviation and the visual padding
+        # unchanged, with or without the DLR clock overlay.
+        if number != 1:
+            try:
+                _slots = varinit.dlr_lower_value_slots
+            except:
+                _slots = {}
+                varinit.dlr_lower_value_slots = _slots
+            _slot_key = str(number)
+            _slot = _slots.get(_slot_key, {})
+            _clock_key = 1 if _show_dlr_clock else 0
+            if _slot.get("raw") != raw_dest or _slot.get("clock") != _clock_key:
+                _slot = {"raw": raw_dest, "clock": _clock_key, "width": actual_value_width}
+            elif not is_now:
+                _slot["width"] = max(int(_slot.get("width", 0)), actual_value_width)
+            reserved_value_width = max(actual_value_width, int(_slot.get("width", actual_value_width)))
+            _slot["width"] = reserved_value_width
+            _slots[_slot_key] = _slot
+            slot_x = max(0, value_right - reserved_value_width)
+            # The reserved slot controls how much room the destination may use,
+            # but the visible value itself is always pinned to the slot's right
+            # edge. This keeps 2/3-row minutes, clock times and NU aligned the
+            # same way on both CircuitPython hardware and the emulator.
+            value_x = max(0, value_right - actual_value_width)
+        else:
+            reserved_value_width = actual_value_width
+            slot_x = max(0, value_right - actual_value_width)
+            value_x = slot_x
+
+        if is_now and number == 1:
+            # Top-row Nu keeps its special 1px right-edge correction plus the
+            # requested 3px breathing room on its left.
+            value_x = max(0, value_x - 1)
+
+        left_gap = 3 if (number == 1 and is_now) else 1
+        max_left = max(0, slot_x - left_gap)
+        max_dest = max(0, max_left - _font_width(prefix, font_index))
+
+        # Top-row DLR abbreviation is sticky for the current first destination.
+        # If the destination needed a built-in/user abbreviation while a wider
+        # countdown/time value was shown, keep that exact abbreviation when the
+        # value later narrows to Nu instead of expanding the name again.
+        if number == 1:
+            try:
+                _cache = varinit.dlr_top_abbrev_cache
+            except:
+                _cache = {}
+                varinit.dlr_top_abbrev_cache = _cache
+
+            if _cache.get("raw") == raw_dest and _cache.get("abbr"):
+                dest = _cache["abbr"]
+            else:
+                dest = _dlr_abbreviate_dest(raw_dest, max_dest, font_index)
+                if dest != raw_dest:
+                    varinit.dlr_top_abbrev_cache = {"raw": raw_dest, "abbr": dest}
+                else:
+                    varinit.dlr_top_abbrev_cache = {"raw": raw_dest, "abbr": ""}
+        else:
+            # Fit against the reduced lower-row width (including the clock area,
+            # when present) before falling back to clipping.  Keep the selected
+            # dicts.py abbreviation sticky while this same departure occupies the
+            # row, including when its value changes to NU.
+            try:
+                _abbrs = varinit.dlr_lower_abbrev_cache
+            except:
+                _abbrs = {}
+                varinit.dlr_lower_abbrev_cache = _abbrs
+            _abbr_key = str(number)
+            _cached = _abbrs.get(_abbr_key, {})
+            _clock_key = 1 if _show_dlr_clock else 0
+            if (_cached.get("raw") == raw_dest and
+                    _cached.get("clock") == _clock_key and _cached.get("abbr")):
+                dest = _cached["abbr"]
+            else:
+                dest = _dlr_abbreviate_dest(raw_dest, max_dest, font_index, uppercase=True)
+                _abbrs[_abbr_key] = {
+                    "raw": raw_dest,
+                    "clock": _clock_key,
+                    "abbr": dest if dest != raw_dest else "",
+                }
+            # TfL DLR lower rows use block-capital destination/value text.
+            # Apply this after abbreviation selection so dicts.py remains the
+            # authoritative source of abbreviations.
+            dest = _dlr_upper(dest)
+
+        left = prefix + dest
+        while dest and _font_width(left, font_index) > max_left:
+            dest = dest[:-1]
+            left = prefix + dest
+
+        # Reuse the SL List colour toggles in DLR:
+        #   listcolor      ON = white departure number, OFF = yellow
+        #   listcolor_time ON = white time/minutes,     OFF = yellow
+        # Keep the destination itself in the normal destination colour.
+        line_colour = "white" if int(varinit.settings.get("listcolor", 0)) else "yellow"
+        time_colour = "white" if int(varinit.settings.get("listcolor_time", 0)) else "yellow"
+        prefix_width = _font_width(prefix, font_index)
+        renderstring(prefix, 0, large=(font_index == 0), smallfont=(font_index != 0),
+                     target_bmp=bmp, target_offs=y, start_x=0, sys_msg=line_colour)
+        renderstring(dest, 0, large=(font_index == 0), smallfont=(font_index != 0),
+                     target_bmp=bmp, target_offs=y, start_x=prefix_width)
+        renderstring(value, 0, large=(font_index == 0), smallfont=(font_index != 0),
+                     target_bmp=bmp, target_offs=y, start_x=value_x, sys_msg=time_colour)
+
+    if len(rows) > 0:
+        _draw_row(rows[0], 1, top, 2, 0)
+    if len(rows) > 1:
+        _draw_row(rows[1], 2, bottom, 0, 1)
+    if len(rows) > 2:
+        _draw_row(rows[2], 3, bottom, 8, 1)
+
+    if _show_dlr_clock:
+        # Large clock spans the two compact lower rows and is pinned to the right edge.
+        renderstring(_dlr_clock, 0, large=True, target_bmp=bottom, target_offs=3,
+                     start_x=_dlr_clock_x, sys_msg=varinit.settings.get("clock_row_color", "white"))
+
+    refresh()
+    return time.monotonic()
+
 def list_mode(mini=False, half=False):
+    # SL List physically has four departure rows on this 128x32 layout. Keep the
+    # app setting consistent even when List was restored directly from settings.
+    if int(varinit.settings.get("listmode", 0)) == 1:
+        varinit.settings["maxdest"] = 4
     mini = varinit.settings["mini"]
 
     #### debug
@@ -910,10 +1581,6 @@ def list_mode(mini=False, half=False):
     if varinit.if_long > 128: version_delay(slowdown=1)
     large_list = not mini and not half and not varinit.rotated and int(varinit.settings.get("large_list", 0))
     xs_line_id = varinit.display.width <= 64 and not varinit.rotated and int(varinit.settings.get("xs_line_id", 0))
-    multi_station_line_id = half and not varinit.rotated and varinit.display.width > 64 \
-                    and int(varinit.settings.get("multi_station_line_id", 0)) and int(varinit.settings["line_length"])
-    _show_line = not varinit.rotated and (varinit.display.width > 64 or xs_line_id) \
-                 and (not half or multi_station_line_id)
     varinit.currentfont = 1
     if mini: varinit.currentfont = 2
     elif large_list: varinit.currentfont = 0
@@ -1002,15 +1669,13 @@ def list_mode(mini=False, half=False):
                 #    return time.monotonic()
                 #if not half: return time.monotonic() - varinit.updatedelay + 2
         
-            if (large_list or multi_station_line_id) and isinstance(trainlist, list):
+            if large_list and isinstance(trainlist, list):
                 _max_lw = 0
                 for _a in trainlist:
                     if isinstance(_a, list) and len(_a) > 1:
-                        _lid = "1(1(" if (_a[1] == "11" and not varinit.settings["clocktime"]) else _a[1]
-                        _w = strlen(_lid[:varinit.settings["line_length"]])
+                        _w = strlen(_a[1][:varinit.settings["line_length"]])
                         if _w > _max_lw: _max_lw = _w
-                if large_list: line_col = _max_lw + 6
-                else: line_col = _max_lw + 2 if _max_lw else 0
+                line_col = _max_lw + 6
             else:
                 line_col = 0
 
@@ -1040,14 +1705,15 @@ def list_mode(mini=False, half=False):
                 if len(all[3]) > 1:
                        mins_cut -= 1
 
-                if not varinit.settings["clocktime"]:
+                if int(varinit.settings.get("clocktime", 0)) != 1:
                     _mins_ref_w = strlen("00")
                     if strlen(all[3]) < _mins_ref_w:
                         all[3] = (_mins_ref_w - strlen(all[3])) * "(" + all[3]
 
+                is_countdown = str(all[3]).replace("(", "").strip().isdigit()
                 if_not_clocktime = (
                     varinit.settings["mins"]
-                    if all[3] and not varinit.settings["clocktime"] and not is_clock_row
+                    if all[3] and int(varinit.settings.get("clocktime", 0)) != 1 and not is_clock_row and is_countdown
                     else ""
                 )
 
@@ -1083,16 +1749,12 @@ def list_mode(mini=False, half=False):
                         _max_px = 64 - strlen(all[3]) - 1
                         while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
                             all[2] = all[2][:-1]
-                    elif multi_station_line_id:
-                        _max_px = 64 - strlen(all[3]) - line_col - 1
-                        while len(all[2]) > 0 and strlen(all[2]) > max(0, _max_px):
-                            all[2] = all[2][:-1]
                     else:
                         all[2] = all[2][:15 - len(varinit.settings["mins"])]
-                        if varinit.settings["clocktime"]:
+                        if int(varinit.settings.get("clocktime", 0)) == 1:
                             all[2] = all[2][:11]
                 mins = all[2]
-                if not varinit.settings["clocktime"]: all[1] = "1(1(" if all[1] == "11" else all[1]
+                if int(varinit.settings.get("clocktime", 0)) != 1: all[1] = "1(1(" if all[1] == "11" else all[1]
 
                 if mini: all[2] = mins
                 all[1] = all[1][:varinit.settings["line_length"]]
@@ -1104,7 +1766,12 @@ def list_mode(mini=False, half=False):
                     offs = varinit.if_long - strlen(all[3])
                 elif varinit.display.width <= 64:
                     offs = varinit.display.width - strlen(all[3])
-                else: offs = varinit.if_long - strlen(all[3])
+                else:
+                    offs = varinit.if_long - strlen(all[3])
+
+                # SL List: one pixel is enough to keep "Nu" clear of the edge.
+                if str(all[3]).replace("(", "").strip().lower() == "nu":
+                    offs = max(0, offs - 1)
                 if half: 
                     all[3] = all[3].replace(" " + if_not_clocktime,"")
                     offs = 64 - strlen(all[3])
@@ -1133,7 +1800,7 @@ def list_mode(mini=False, half=False):
                         added_space = (_xs_max_lw + 2) * "("
                 elif mini:
                     added_space = varinit.settings["line_length"] * "(((("
-                    if half: added_space = line_col * "(" if multi_station_line_id else ""
+                    if half: added_space = ""
                 else: added_space = varinit.settings["line_length"] * "(((((("
                 if not varinit.settings["line_length"]:
                     added_space = ""
@@ -1175,7 +1842,7 @@ def list_mode(mini=False, half=False):
                         }
                         renderstring(multiple_offset + minsleft, 100+x, 0, 0, inv, mini=mini,
                                      sys_msg=min_color, target_bmp=varinit.overlay_bmp)
-                        if _show_line:
+                        if not half and not varinit.rotated and (varinit.display.width > 64 or xs_line_id):
                             renderstring(multiple_offset + line, 100+x, 0, 0, inv, mini=mini,
                                          sys_msg=lin_color, target_bmp=varinit.overlay_bmp)
                         varinit.overlay_tg.y = extrarow
@@ -1183,7 +1850,7 @@ def list_mode(mini=False, half=False):
                     else:
                         renderstring(multiple_offset + minsleft, 100+x, 0, 0, inv, mini=mini, sys_msg=min_color)
                         renderstring(multiple_offset + added_space + dest, 100+x, 0, 0, inv, mini=mini, sys_msg=(clock_color if is_clock_row else False))
-                        if _show_line:
+                        if not half and not varinit.rotated and (varinit.display.width > 64 or xs_line_id):
                             renderstring(multiple_offset + line, 100+x, 0, 0, inv, mini=mini, sys_msg=lin_color)
                     if x > varinit.if_tall // 8 - 1: continue
             num -= 1

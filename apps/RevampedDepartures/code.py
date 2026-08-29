@@ -11,22 +11,28 @@ varinit.debounce_delay = debounce_delay
 def check_button():
     b = check_if_button_pressed()
     if b == 1:
-        if int(varinit.settings.get("button_mode", 0)):
-            varinit.deviations_timer = time.monotonic()
-            if varinit.display.width > 64 and varinit.display.height <= 32:
-                varinit.settings["listmode"] = 1 - int(varinit.settings["listmode"])
-            functions.switch(_screen=True)
-        else:
-            nightcheck(_switch=True, turnon=varinit.group.hidden); refresh()
+        nightcheck(_switch=True, turnon=varinit.group.hidden)
+        refresh()
     elif b == 2:
         varinit.exit = True
+
 delay = version_delay()
 #microcontroller.cpu.frequency = 240000000
 from functions import refresh
 disp_init()
 if varinit.display.width <= 64 or varinit.display.height > 32:
     varinit.settings["listmode"] = 1
-scroll_mode()
+if int(varinit.settings.get("listmode", 0)) == 2:
+    dlr_mode()
+elif int(varinit.settings.get("listmode", 0)) == 1:
+    list_mode()
+else:
+    scroll_mode()
+
+# Renderer ownership lives in this main loop, not in the HTTP callback.
+# This prevents a web request from changing TileGrid state halfway through a draw.
+_active_view_mode = int(varinit.settings.get("listmode", 0))
+varinit.shared["force_view_rebuild"] = 0
 #################################
 try:
     if wifi.radio.connected == True:
@@ -62,14 +68,43 @@ while not varinit.exit:
         if x: 
             ampule.listen(socket)
             check_button()
-        if int(varinit.settings["listmode"]) and time.monotonic() > varinit.shared["scroll_timer"] + updatedelay: varinit.shared["scroll_timer"] = list_mode()
+
+        _requested_mode = int(varinit.settings.get("listmode", 0))
+        _rebuild_requested = int(varinit.shared.get("force_view_rebuild", 0))
+        if _requested_mode != _active_view_mode or _rebuild_requested:
+            _view_changed = (_requested_mode != _active_view_mode)
+            varinit.shared["force_view_rebuild"] = 0
+
+            # Only a true View change gets the deliberate loading interstitial.
+            # Filter/settings refreshes rebuild immediately without the 2 s delay.
+            if _view_changed:
+                view_switch_loading(2.0)
+
+            rebuild_current_view()
+            _active_view_mode = _requested_mode
+            varinit.shared["scroll_timer"] = time.monotonic()
+            continue
+
+        if int(varinit.settings["listmode"]) == 2:
+            # DLR owns a lightweight per-loop animation state machine for its
+            # lower-half custom/disruption ticker. Do not let the normal timed
+            # departure refresh overwrite the bitmap while that animation is active.
+            dlr_animation_tick()
+            if (not dlr_message_active()
+                    and time.monotonic() > varinit.shared["scroll_timer"] + updatedelay):
+                varinit.shared["scroll_timer"] = dlr_mode()
+        elif int(varinit.settings["listmode"]) == 1 and time.monotonic() > varinit.shared["scroll_timer"] + updatedelay: varinit.shared["scroll_timer"] = list_mode()
         elif not int(varinit.settings["listmode"]) and varinit.display.width > 64: 
             varinit.tg2.x -= 1
             refresh(int(delay + varinit.settings["scroll"]) + 1 * (delay*2))
-            if varinit.tg2.x < -varinit.scrollsum: scroll_mode()
-            elif time.monotonic() > varinit.shared["scroll_timer"] + updatedelay and shared["loop_counter"] >= 0: scroll_mode()
+            if varinit.tg2.x < -varinit.scrollsum:
+                scroll_mode()
+            elif (not custom_scroll_available()
+                  and time.monotonic() > varinit.shared["scroll_timer"] + updatedelay
+                  and shared["loop_counter"] >= 0):
+                scroll_mode()
         # Dest TileGrid smooth scroll (runs every main-loop iteration in listmode)
-        if int(varinit.settings["listmode"]) and int(varinit.settings.get("dest_scroll", 0)):
+        if int(varinit.settings["listmode"]) == 1 and int(varinit.settings.get("dest_scroll", 0)):
             try:
                 _nt = time.monotonic()
                 _scrolled = False

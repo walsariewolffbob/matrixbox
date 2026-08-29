@@ -376,7 +376,10 @@ def huvudsidan(request):
         return (200, {}, x)
     elif "show_msgs" in request.params:
         varinit.settings["show_msgs"] = 1 - varinit.settings["show_msgs"]
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) == 2:
+            functions.refresh_dlr_message_settings_now()
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "sleep" in request.params:
         varinit.settings["sleep"] = 1 - varinit.settings["sleep"]
@@ -397,16 +400,31 @@ def huvudsidan(request):
     elif "type" in request.params:
         varinit.settings["stations"][num][request.params["type"].upper()] = 1 - int(varinit.settings["stations"][num][request.params["type"].upper()])
         varinit.use_cached_data = True
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) == 2:
+            # Never clear only the lower 16 px in DLR. Ask the render loop to
+            # rebuild all three DLR rows together from the cached departure data.
+            varinit.shared["force_view_rebuild"] = 1
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "line" in request.params:
         varinit.settings["stations"][num][request.params["line"]] = 1 - int(varinit.settings["stations"][num][request.params["line"]])
         varinit.use_cached_data = True
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) == 2:
+            varinit.shared["force_view_rebuild"] = 1
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "maxdest" in request.params:
-        varinit.settings["maxdest"] = int(request.params["maxdest"])
-        functions.switch(_screen=False)
+        # List/DLR own this setting because their physical layouts have fixed row counts.
+        _mode = int(varinit.settings.get("listmode", 0))
+        if _mode == 2:
+            varinit.settings["maxdest"] = 3
+        elif _mode == 1:
+            varinit.settings["maxdest"] = 4
+        else:
+            varinit.settings["maxdest"] = int(request.params["maxdest"])
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "direction" in request.params:
         varinit.settings["stations"][num]["direction"] = int(request.params["direction"])
@@ -448,23 +466,131 @@ def huvudsidan(request):
         functions.colors()
         if int(varinit.settings["listmode"]): functions.switch(_screen=False)
         return (200, {}, "")
-    elif "listmode" in request.params: 
+    elif "listmode" in request.params:
         if varinit.display.width > 64 and varinit.display.height <= 32:
-            varinit.settings["listmode"] = 1 - int(varinit.settings["listmode"])
-        functions.switch(_screen = True)
+            mode = int(request.params["listmode"])
+            if mode in (0, 1, 2):
+                old_mode = int(varinit.settings.get("listmode", 0))
+                varinit.settings["listmode"] = mode
+                if mode == 2:
+                    # DLR has exactly three visible departure slots. Its realistic
+                    # benchmark starts with yellow departure numbers/minutes and
+                    # always-countdown time display. These remain user-editable
+                    # after the view has been selected.
+                    varinit.settings["maxdest"] = 3
+                    varinit.settings["listcolor"] = 0
+                    varinit.settings["listcolor_time"] = 0
+                    varinit.settings["clocktime"] = 2
+                    # DLR message lane benchmark: show lower departures for 15s
+                    # before custom/disruption text is allowed to scroll.
+                    varinit.settings["dlr_scroll_delay"] = 15
+                elif mode == 1:
+                    # SL List has exactly four visible departure rows. Its benchmark
+                    # starts with both line/minutes colour toggles enabled (white)
+                    # and Dynamic time display.
+                    varinit.settings["maxdest"] = 4
+                    varinit.settings["listcolor"] = 1
+                    varinit.settings["listcolor_time"] = 1
+                    varinit.settings["clocktime"] = 0
+                else:
+                    # Returning to the realistic SL Classic default starts at 3
+                    # departures and Dynamic time display.
+                    varinit.settings["maxdest"] = 3
+                    varinit.settings["clocktime"] = 0
+                if mode != old_mode:
+                    # The HTTP callback must not swap TileGrids while the renderer
+                    # is using them. The normal app/emulator loop consumes this flag.
+                    varinit.shared["force_view_rebuild"] = 1
         return (200, {}, "")
-    elif "clocktime" in request.params: 
-        varinit.settings["clocktime"] = 1 - varinit.settings["clocktime"]
-        functions.switch(_screen = False)
+    elif "dlr_scroll_content" in request.params:
+        mode = str(request.params.get("dlr_scroll_content", "none")).lower()
+        if mode not in ("none", "disruptions", "custom"):
+            mode = "none"
+        # DLR uses one exclusive lower-half message source. Reuse the existing
+        # app settings rather than creating parallel message plumbing.
+        if mode == "custom":
+            varinit.settings["custom_scroll_show"] = 1
+            varinit.settings["show_msgs"] = 0
+        elif mode == "disruptions":
+            varinit.settings["custom_scroll_show"] = 0
+            varinit.settings["show_msgs"] = 1
+        else:
+            varinit.settings["custom_scroll_show"] = 0
+            varinit.settings["show_msgs"] = 0
+        _view_mode = int(varinit.settings.get("listmode", 0))
+        if _view_mode == 2:
+            functions.refresh_dlr_message_settings_now()
+        elif _view_mode == 0:
+            # Classic uses the same exclusive selector. Rebuild its ticker now
+            # so None / Disruptions / Custom takes effect immediately.
+            functions.switch(_screen=False)
+            functions.scroll_mode()
+        return (200, {}, "")
+    elif "custom_scroll_show" in request.params:
+        varinit.settings["custom_scroll_show"] = 1 - int(varinit.settings.get("custom_scroll_show", 0))
+        if int(varinit.settings.get("listmode", 0)) == 2:
+            functions.refresh_dlr_message_settings_now()
+        else:
+            functions.switch(_screen=False)
+            if not int(varinit.settings.get("listmode", 0)):
+                functions.scroll_mode()
+        return (200, {}, "")
+    elif "custom_scroll_text" in request.params:
+        try:
+            v = str(request.params["custom_scroll_text"])
+            for a in html_decode:
+                v = v.replace(a, html_decode[a])
+            varinit.settings["custom_scroll_text"] = v
+            print("CUSTOM SCROLL text saved:", v)
+            if int(varinit.settings.get("listmode", 0)) == 2:
+                functions.refresh_dlr_message_settings_now()
+            else:
+                functions.switch(_screen=False)
+                if not int(varinit.settings.get("listmode", 0)):
+                    functions.scroll_mode()
+        except Exception as e:
+            print(e)
+        return (200, {}, "")
+    elif "dlr_scroll_delay" in request.params:
+        try:
+            delay = int(request.params["dlr_scroll_delay"])
+        except:
+            delay = 15
+        varinit.settings["dlr_scroll_delay"] = max(1, min(300, delay))
+        if int(varinit.settings.get("listmode", 0)) == 2:
+            functions.refresh_dlr_message_settings_now()
+        return (200, {}, "")
+    elif "custom_scroll_position" in request.params:
+        try:
+            mode = int(request.params["custom_scroll_position"])
+            if mode in (0, 1, 2):
+                varinit.settings["custom_scroll_position"] = mode
+            functions.switch(_screen=False)
+            if not int(varinit.settings.get("listmode", 0)):
+                functions.scroll_mode()
+        except Exception as e:
+            print(e)
+        return (200, {}, "")
+    elif "clocktime" in request.params:
+        mode = int(request.params["clocktime"])
+        if mode in (0, 1, 2):
+            varinit.settings["clocktime"] = mode
+        functions.switch(_screen=False)
         return (200, {}, "")
     elif "listcolor_time" in request.params:
         varinit.settings["listcolor_time"] = 1 - int(varinit.settings.get("listcolor_time", 0))
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) in (1, 2):
+            functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "listcolor" in request.params: 
         varinit.settings["listcolor"] = 1 - int(varinit.settings["listcolor"])
         functions.colors()
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) in (1, 2):
+            functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "font_size" in request.params:
         fs = request.params.get("font_size", "small")
@@ -479,30 +605,41 @@ def huvudsidan(request):
         return (200, {}, "")
     elif "show_clock_row" in request.params:
         varinit.settings["show_clock_row"] = 1 - int(varinit.settings.get("show_clock_row", 0))
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) in (1, 2):
+            functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "clock_row_date" in request.params:
         varinit.settings["clock_row_date"] = 1 - int(varinit.settings.get("clock_row_date", 0))
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) in (1, 2):
+            functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "clock_row_position" in request.params:
         v = request.params["clock_row_position"]
         varinit.settings["clock_row_position"] = v if v in ("top", "bottom") else "bottom"
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) in (1, 2):
+            functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "clock_row_align" in request.params:
         v = request.params["clock_row_align"]
         varinit.settings["clock_row_align"] = v if v in ("left", "center", "right") else "left"
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) in (1, 2):
+            functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "clock_row_color" in request.params:
         v = request.params["clock_row_color"]
         varinit.settings["clock_row_color"] = v if v in ("white", "yellow", "red", "green", "blue") else "white"
-        functions.switch(_screen=False)
-        return (200, {}, "")
-    elif "multi_station_line_id" in request.params:
-        varinit.settings["multi_station_line_id"] = 1 - int(varinit.settings.get("multi_station_line_id", 0))
-        functions.switch(_screen=False)
+        if int(varinit.settings.get("listmode", 0)) in (1, 2):
+            functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
         return (200, {}, "")
     elif "dest_scroll" in request.params:
         varinit.settings["dest_scroll"] = 1 - int(varinit.settings.get("dest_scroll", 0))
@@ -549,7 +686,12 @@ def huvudsidan(request):
             for line in lines.split(","):
                 show_lines.append(line)
             varinit.settings["show_lines"] = show_lines
-            functions.switch(_screen=False)
+            if int(varinit.settings.get("listmode", 0)) == 2:
+                # DLR draws rows 2+3 into the lower bitmap. The old switch() call
+                # cleared that bitmap and left it blank until the next timed fetch.
+                varinit.shared["force_view_rebuild"] = 1
+            else:
+                functions.switch(_screen=False)
         except Exception as e: 
             print(e)
         return (200, {}, "")

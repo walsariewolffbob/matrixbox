@@ -39,15 +39,6 @@ def _chk(name, val, url, label):
             '<label class="switch"><input type="checkbox" id="' + name + '" data-u="' + url + '"' + c + '><span class="slider"></span></label></div>')
 
 
-def _toggle2(name, val, url, label_left, label_right, caption=""):
-    c = " checked" if int(val) else ""
-    cap = '<label for="' + name + '" class="toggle-label">' + caption + '</label>' if caption else ""
-    return ('<div class="toggle-row">' + cap +
-            '<input type="checkbox" id="' + name + '" class="seg-toggle-cb" data-u="' + url + '"' + c + '>'
-            '<label for="' + name + '" class="seg-toggle"><div>' + label_left + '</div><div>' + label_right + '</div></label>'
-            '</div>')
-
-
 def _rssi(functions):
     try:
         ai = functions.wifi.radio.ap_info
@@ -78,12 +69,7 @@ PAGE_TPL = """<!DOCTYPE html>
 <div class="page">
 <form method="post" action="/">
 <div class="card">
-
-<div class="section-title">
-<details>
-<summary>&#9881; {T_WIFI_LABEL}</summary>
-
-
+<div class="section-title">{T_CONNECTIONS}</div>
 <div class="form-row">
 <div class="col">
 <label for="ssid"><a href="#" onclick="doScan();return false" title="Scan">&#128268;</a> {T_WIFI_LABEL}</label>
@@ -95,10 +81,10 @@ PAGE_TPL = """<!DOCTYPE html>
 </div>
 </div>
 <button type="button" class="btn btn-outline-secondary btn-sm" id="connect_wifi" style="margin-top:10px" data-u="/?connect_wifi=true" {NET_DIS}>{T_CONNECT}</button>
-</div></div>
+{CONNECTION_ADVANCED}
+</div>
 <div class="card">
 <div class="section-title">{T_NETWORK_LABEL}</div>
-{MULTIPLE_SECTION}
 <div class="form-row" style="margin-top:12px">
 <div class="dropdown" id="opdd"><button type="button" class="dropbtn" id="opbtn" {OPBTN_PULSE} onclick="toggleDropdown(event)">{COUNTRY_FLAG} {OPERATOR} &#9660;</button>
 <div class="dropdown-content">{COMBINED_LIST}</div></div>
@@ -129,47 +115,39 @@ PAGE_TPL = """<!DOCTYPE html>
 {SL_SECTION}
 </div>
 <div class="card">
-{LISTMODE_CHK}
-{CLOCKTIME_CHK}
-{DEVIATIONS_SECTION}
-{DISRUPTIONS}
-
-{BUTTON_MODE_CHK}
-{SLEEP_CHK}
-{SHOW_STATION_CHK}
-</div>
-<div class="card">
 <div class="grp">
-<div class="form-row">{SCROLL_SECTION}<div class="col">
+<div class="form-row">{CLOCKTIME_CHK}<div class="col">
 <label for="maxdest">{T_NO_DEPARTURES}</label>
-<select id="maxdest" name="maxdest" class="form-control" data-p="maxdest" data-e="change">{MAXDEST_OPTIONS}</select>
+<select id="maxdest" name="maxdest" class="form-control" data-p="maxdest" data-e="change"{MAXDEST_DISABLED}>{MAXDEST_OPTIONS}</select>
 </div></div></div>
 <div class="grp">
 <div class="form-row"><div class="col">
 <label for="offset">{T_HIDE_DEPARTURES}</label>
 <select id="offset" name="offset" class="form-control" data-p="offset" data-e="change">{OFFSET_OPTIONS}</select>
 </div><div class="col">{DIRECTION_SECTION}</div></div></div>
+{SLEEP_CHK}
+</div>
+<div class="card">
+{LISTMODE_CHK}
+{SCROLL_SECTION}
+{DEVIATIONS_SECTION}
+{CUSTOM_SCROLL_HTML}
+{CLOCK_INLINE_HTML}
+{VIEW_COLOR_TOGGLES}
+{BUTTON_MODE_CHK}
 </div>
 <div class="card"><details>
 <summary>&#9881; {T_ADVANCED}</summary>
 <table>
 <tr><td><b>{T_TONE}</b></td><td><div style="display:flex;gap:10px">{TONE_SWATCHES}</div></td></tr>
-{FONT_SIZE_ROW}
-{CLOCK_ROW_HTML}
-<tr><td><b>Timer</b></td><td><button type="button" class="btn btn-sm" onclick="location.href='/?timer=set'">&#8987; Configure</button></td></tr>
-<tr><td><b>{T_ROTATION}</b></td><td><button type="button" class="btn btn-sm" data-u="/?rotate=1">&#128260; 90&deg;</button></td></tr>
-<tr><td><b>{T_POWER}</b></td><td><input type="text" id="power" class="form-control" style="width:80px;display:inline" placeholder="{POWER_VAL}" data-p="power" data-e="blur"></td></tr>
 <tr><td><b>{T_LINE_LENGTH}</b></td><td><input type="text" id="line_length" class="form-control" style="width:80px;display:inline" placeholder="{LINE_LENGTH_VAL}" data-p="line_length" data-e="blur"><br><small>{T_LINE_LENGTH_HELP}</small></td></tr>
 <tr><td><b>{T_SHOW_LINES}</b></td><td><input type="text" id="show_lines" class="form-control" style="width:160px;display:inline" placeholder="{SHOW_LINES_VAL}" data-p="show_lines" data-e="blur"></td></tr>
 <tr><td><b>Strip from destination</b></td><td><input type="text" id="strip_dest" class="form-control" style="width:160px;display:inline" placeholder="{STRIP_DEST_VAL}" data-p="strip_dest" data-e="blur" data-enc="1"></td></tr>
-<tr><td><b>Destination abbreviations</b></td><td><input type="text" id="dest_abbrev" class="form-control" style="width:160px;display:inline" placeholder="{DEST_ABBREV_VAL}" data-p="dest_abbrev" data-e="blur" data-enc="1"></td></tr>
 <tr><td><b>{T_NO_MORE_DEP}</b></td><td><input type="text" id="no_more_departures" class="form-control" style="width:160px;display:inline" placeholder="{NO_MORE_DEP_VAL}" data-p="no_more_departures" data-e="blur" data-enc="1"></td></tr>
 <tr><td><b>{T_MINS}</b></td><td><input type="text" id="mins" class="form-control" style="width:160px;display:inline" placeholder="{MINS_VAL}" data-p="mins" data-e="blur" data-enc="1"></td></tr>
 </table>
-{RT_INDICATOR_CHK}
+{SHOW_STATION_CHK}
 {XS_LINE_ID_CHK}
-{LISTCOLOR_CHK}
-{LISTCOLOR_TIME_CHK}
 {DEST_SCROLL_CHK}
 {DNS_SECTION}
 </details></div>
@@ -188,15 +166,37 @@ function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.queryS
 function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
 function doScan(){fetch('/checknet').then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('ssid');sel.innerHTML=h;sel.disabled=false;document.getElementById('password').disabled=false;document.getElementById('connect_wifi').disabled=false;}).catch(function(){});}
 
-var mc=document.getElementById('multiple');if(mc)mc.addEventListener('change',function(){var sb=document.getElementById('screenbtns');if(sb)sb.style.visibility=mc.checked?'visible':'hidden';});
 function setFont(v,el){fetch('/?font_size='+v);var bs=el.parentNode.querySelectorAll('button');bs.forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
 function setColor(v,el){fetch('/?color='+v);el.parentNode.querySelectorAll('.color-swatch-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');}
+function updateDlrScrollControls(){
+var lm=document.getElementById('listmode'),mode=lm?String(lm.value):'',classic=mode==='0',dlr=mode==='2',supported=classic||dlr;
+var seg=document.getElementById('dlr-scroll-mode'),active=seg?seg.querySelector('button.on'):null,isCustom=!!(active&&active.textContent==='Custom');
+var tr=document.getElementById('custom-scroll-text-row'),ti=document.getElementById('custom_scroll_text');
+var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');
+var pr=document.getElementById('custom-scroll-position-row'),pi=document.getElementById('custom_scroll_position');
+var sr=document.getElementById('custom-scroll-show-row');
+if(seg)seg.parentNode.style.display=supported?'':'none';
+if(sr)sr.style.display='none';
+if(tr)tr.style.opacity=(!supported||isCustom)?'1':'.35';
+if(dr){dr.style.display=dlr?'':'none';dr.style.opacity=isCustom?'1':'.35';}
+if(pr){pr.style.display=classic?'':'none';pr.style.opacity=isCustom?'1':'.35';}
+if(ti)ti.disabled=supported&&!isCustom;
+if(di)di.disabled=dlr&&!isCustom;
+if(pi)pi.disabled=classic&&!isCustom;
+}
+function setDlrScrollMode(v,el){
+fetch('/?dlr_scroll_content='+encodeURIComponent(v));
+var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+el.classList.add('on');updateDlrScrollControls();
+}
 document.querySelectorAll('[data-u],[data-p]').forEach(function(el){
 el.addEventListener(el.dataset.e||'click',function(ev){
 var u=el.dataset.u;
 if(!u){var v=ev.target.value.replace(/#/g,'%23');if(el.dataset.enc)v=encodeURIComponent(v);u='/?'+el.dataset.p+'='+v;}
 fetch(u,{method:'GET'});
+if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';}else{if(ct)ct.value='0';}updateDlrScrollControls();}
 });});
+updateDlrScrollControls();
 </script>
 </form></div></body></html>"""
 
@@ -330,11 +330,14 @@ def html():
         result_dis = ""
         result_style = "style='border-color:#ff6060;animation:guide-pulse 2.5s ease-in-out infinite'"
 
-    # maxdest options
+    # maxdest options. List and DLR have fixed physical row counts.
+    _view_mode = int(s.get("listmode", 0))
+    _maxdest_value = 3 if _view_mode == 2 else (4 if _view_mode == 1 else s["maxdest"])
     _p = []
     for i in range(1, 21):
-        _p.append(_opt(i, s["maxdest"], str(i)))
+        _p.append(_opt(i, _maxdest_value, str(i)))
     maxdest_opt = "".join(_p)
+    maxdest_disabled = " disabled" if _view_mode in (1, 2) else ""
 
     # metro section
     metro_html = _chk("METRO", stn["METRO"], "/?type=metro", T["subway"])
@@ -349,6 +352,8 @@ def html():
     sl_disp = "" if op_code == "SL" else "display:none;"
     night_bus_html = _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"])
     devs_html = _chk("show_msgs", s["show_msgs"], "/?show_msgs=1", T["t_info"])
+    _devs_show = "display:none;"
+    devs_html = '<div id="disruption-msg-section" style="' + _devs_show + '"><div style="border-top:1px solid var(--border);margin:0"></div>' + devs_html + '</div>' 
     sl_section = ''.join(['<div id="slsection" style="', sl_disp, ';margin-top:10px">',
         '<label class="control-label" style="margin-bottom:6px">Metro line filter</label>',
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">',
@@ -358,7 +363,7 @@ def html():
         '<label class="line-chip" for="g"><span class="dot" style="background:#16a34a"></span>Green</label>',
         '<input type="checkbox" class="btn-check" id="b" name="blue" data-u="/?line=blue"', bc, '>',
         '<label class="line-chip" for="b"><span class="dot" style="background:#2563eb"></span>Blue</label>',
-        '</div>', night_bus_html, devs_html, '</div>',])
+        '</div>', night_bus_html, '</div>',])
 
     
     disruptions = devs_html if op_code in ["VT"] else ""
@@ -396,35 +401,102 @@ def html():
     _p.append("</select>")
     dir_html = "".join(_p)
 
-    # scroll section (128 only)
+    # Scroll speed belongs to the View card and is only relevant to SL Classic.
     scroll_html = ""
     if if_long == 128:
-        scroll_html = ''.join(['<div class="col"><label for="scroll">', T["scroll"], '</label><select id="scroll" name="scroll" class="form-control" data-p="scroll" data-e="change">', _opt(0, s["scroll"], "Normal"), _opt(1, s["scroll"], T["low"]), '</select></div>'])
+        _scroll_show = "" if not int(s.get("listmode", 0)) else "display:none;"
+        scroll_html = ''.join([
+            '<div id="classic-scroll-speed-section" style="', _scroll_show, '">',
+            '<div style="border-top:1px solid var(--border);margin:10px 0 0"></div>',
+            '<div class="toggle-row"><label for="scroll" class="toggle-label">', T["scroll"], '</label>',
+            '<select id="scroll" name="scroll" class="form-control" ',
+            'style="width:auto;min-width:165px;margin-left:12px;display:inline-block" data-p="scroll" data-e="change">',
+            _opt(0, s["scroll"], "Normal"), _opt(1, s["scroll"], T["low"]),
+            '</select></div></div>'
+        ])
 
-    # multiple (wide: side-by-side lists; XS: merged single sorted list) - shown
-    # first so the [1][2][3] screen picker below makes sense
-    mult_html = _chk("multiple", s["multiple"], "/?multiple=1", T["multiple"])
-
-    # list mode
+    # display mode
     listmode_html = ""
     if if_long > 64 and varinit.display.height <= 32:
-        listmode_html = _toggle2("abc", s["listmode"], "/?listmode=switch", T["scroll_mode"], T["list_mode"], T["mode_label"])
+        listmode_html = ''.join([
+            '<div class="col"><label for="listmode">View</label>',
+            '<select id="listmode" name="listmode" class="form-control" data-p="listmode" data-e="change">',
+            _opt(0, s["listmode"], "SL Classic"),
+            _opt(1, s["listmode"], "SL List"),
+            _opt(2, s["listmode"], "TfL DLR"),
+            '</select></div>'
+        ])
 
-    # clocktime
-    clock_html = _toggle2("clocktime", s["clocktime"], "/?clocktime=switch", T["countdown"], T["clock_time"], T["time_label"])
+    # SL Classic custom scroll message. Kept in the DOM so changing the view
+    # selector can show/hide it immediately without reloading the page.
+    _cs_show = "" if int(s.get("listmode", 0)) in (0, 2) else "display:none;"
+    _cs_pos_show = "" if int(s.get("listmode", 0)) == 0 else "display:none;"
+    _cs_checked = " checked" if int(s.get("custom_scroll_show", 0)) else ""
+    _cs_text = str(s.get("custom_scroll_text", ""))
+    _cs_text = _cs_text.replace("&", "&amp;").replace('"', "&quot;").replace("<", "&lt;").replace(">", "&gt;")
+    _scroll_content = "custom" if int(s.get("custom_scroll_show", 0)) else ("disruptions" if int(s.get("show_msgs", 0)) else "none")
+    _scroll_custom_disabled = "" if _scroll_content == "custom" else " disabled"
+    _scroll_custom_opacity = "1" if _scroll_content == "custom" else ".35"
+    custom_scroll_html = ''.join([
+        '<div id="custom-scroll-section" style="', _cs_show, '">',
+        '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
+        '<details><summary>&#9998; Scroll Text</summary>',
 
-    # deviations (SL only)
-    devs_html = ""
-    if op_code == "SL":
-        devs_html = _chk("show_msgs", s["show_msgs"], "/?show_msgs=1", T["t_info"])
+        # Classic + DLR three-way content selector, using the official MatrixBOX .seg control.
+        '<div id="dlr-scroll-mode-row" style="', ("" if int(s.get("listmode", 0)) in (0, 2) else "display:none;"), 'margin-bottom:10px">',
+        '<span class="seg" id="dlr-scroll-mode" style="width:100%">',
+        '<button type="button" onclick="setDlrScrollMode(\'none\',this)" class="', ("on" if _scroll_content == "none" else ""), '">None</button>',
+        '<button type="button" onclick="setDlrScrollMode(\'disruptions\',this)" class="', ("on" if _scroll_content == "disruptions" else ""), '">Disruptions</button>',
+        '<button type="button" onclick="setDlrScrollMode(\'custom\',this)" class="', ("on" if _scroll_content == "custom" else ""), '">Custom</button>',
+        '</span></div>',
+
+        # Text field is shared with Classic, but DLR grays/disables it unless Custom is selected.
+        '<div id="custom-scroll-text-row" style="opacity:', (_scroll_custom_opacity if int(s.get("listmode", 0)) in (0, 2) else "1"), '">',
+        '<label for="custom_scroll_text"><b>Text</b></label>',
+        '<input type="text" id="custom_scroll_text" class="form-control" style="margin-top:5px" value="', _cs_text, '" ',
+        'placeholder="Enter custom message" data-p="custom_scroll_text" data-e="blur" data-enc="1"',
+        (_scroll_custom_disabled if int(s.get("listmode", 0)) in (0, 2) else ""), '></div>',
+
+        '<div style="border-top:1px solid var(--border);margin:10px 0 0"></div>',
+        '<div id="dlr-scroll-delay-row" class="toggle-row" style="border-bottom:none;', ("" if int(s.get("listmode", 0)) == 2 else "display:none;"), ';opacity:', (_scroll_custom_opacity if int(s.get("listmode", 0)) in (0, 2) else "1"), '">',
+        '<label for="dlr_scroll_delay" class="toggle-label">Scroll delay</label>',
+        '<div style="display:flex;align-items:center;gap:7px"><input type="number" id="dlr_scroll_delay" class="form-control" min="1" max="300" step="1" value="', str(s.get("dlr_scroll_delay", 15)), '" data-p="dlr_scroll_delay" data-e="change" style="width:82px"',
+        (_scroll_custom_disabled if int(s.get("listmode", 0)) in (0, 2) else ""), '><span style="color:var(--muted)">sec</span></div></div>',
+
+        # Classic-only placement and master toggle remain untouched.
+        '<div style="border-top:1px solid var(--border);margin:0"></div>',
+        '<div id="custom-scroll-position-row" class="toggle-row" style="border-bottom:none;', _cs_pos_show, ';opacity:', (_scroll_custom_opacity if int(s.get("listmode", 0)) == 0 else "1"), '"><label for="custom_scroll_position" class="toggle-label">Position</label>',
+        '<select id="custom_scroll_position" name="custom_scroll_position" class="form-control" ',
+        'style="width:auto;min-width:165px;margin-left:12px;display:inline-block" data-p="custom_scroll_position" data-e="change"',
+        (_scroll_custom_disabled if int(s.get("listmode", 0)) == 0 else ""), '>',
+        _opt(0, s.get("custom_scroll_position", 0), "After departures"),
+        _opt(1, s.get("custom_scroll_position", 0), "Before departures"),
+        _opt(2, s.get("custom_scroll_position", 0), "After first departure"),
+        '</select></div>',
+        '<div id="custom-scroll-show-row" style="display:none;">',
+        '<div style="border-top:1px solid var(--border);margin:0"></div>',
+        '<div class="toggle-row" style="border-bottom:none"><label for="CUSTOM_SCROLL_SHOW" class="toggle-label">Show custom scroll text</label>',
+        '<label class="switch"><input type="checkbox" id="CUSTOM_SCROLL_SHOW" data-u="/?custom_scroll_show=switch"', _cs_checked, '><span class="slider"></span></label></div>',
+        '</div>',
+        '</details></div>'
+    ])
+
+    # departure time display mode: 0 dynamic, 1 always time, 2 always countdown
+    # This is a general departure option, so it lives in the options card above View.
+    clock_html = ''.join([
+        '<div class="col">',
+        '<label for="clocktime">', T["time_display_type"], '</label>',
+        '<select id="clocktime" name="clocktime" class="form-control" data-p="clocktime" data-e="change">',
+        _opt(0, s.get("clocktime", 0), T["time_display_dynamic"]),
+        _opt(1, s.get("clocktime", 0), T["time_display_time"]),
+        _opt(2, s.get("clocktime", 0), T["time_display_countdown"]),
+        '</select></div>'
+    ])
 
     # sleep
     sleep_html = _chk("sleep", s["sleep"], "/?sleep=1", T["turn_off"])
 
-    # button mode
     button_mode_html = ""
-    if if_long > 64 and varinit.display.height <= 32:
-        button_mode_html = _toggle2("button_mode", s.get("button_mode", 0), "/?button_mode=switch", T["turn_off_short"], T["switch_mode"], T["button_behavior_label"])
 
     # show station
     show_stn_html = _chk("show_my_station", s["show_my_station"], "/?show_station=1", T["show_station"])
@@ -448,11 +520,13 @@ def html():
         '<button type="button" onclick="setFont(\'large\',this)" class="' + ("on" if _fs == "large" else "") + '">large</button>'
         '</span>'
     )
-    font_size_row = '<tr><td><b>' + T["font_mini"] + '</b></td><td>' + font_size_html + '</td></tr>' if if_long > 64 else ""
     xs_line_id_chk = _chk("XS_LINE_ID", s.get("xs_line_id", 0), "/?xs_line_id=switch", "Show line ID") if if_long <= 64 else ""
+    _clock_list_extra_show = "" if int(s.get("listmode", 0)) == 1 else "display:none;"
     clock_row_html = (
-        '<tr><td><b>Clock row</b></td><td>' + _chk("SHOW_CLOCK_ROW", s.get("show_clock_row", 0), "/?show_clock_row=switch", "Show date/time instead of a departure") + '</td></tr>'
-        '<tr><td><b>Clock: show date</b></td><td>' + _chk("CLOCK_ROW_DATE", s.get("clock_row_date", 0), "/?clock_row_date=switch", "Include date") + '</td></tr>'
+        _chk("SHOW_CLOCK_ROW", s.get("show_clock_row", 0), "/?show_clock_row=switch", "Show clock row")
+        + '<div id="clock-list-extra" style="' + _clock_list_extra_show + '">'
+        + _chk("CLOCK_ROW_DATE", s.get("clock_row_date", 0), "/?clock_row_date=switch", "Include date")
+        + '<table>'
         '<tr><td><b>Clock: position</b></td><td><select id="clock_row_position" class="form-control" style="width:130px;display:inline" data-p="clock_row_position" data-e="change">'
         + _opt("bottom", s.get("clock_row_position", "bottom"), "Bottom row")
         + _opt("top", s.get("clock_row_position", "bottom"), "Top row")
@@ -462,21 +536,54 @@ def html():
         + _opt("center", s.get("clock_row_align", "left"), "Center")
         + _opt("right", s.get("clock_row_align", "left"), "Right")
         + '</select></td></tr>'
-        '<tr><td><b>Clock: color</b></td><td><select id="clock_row_color" class="form-control" style="width:130px;display:inline" data-p="clock_row_color" data-e="change">'
+        + '</table></div>'
+        + '<table><tr><td><b>Clock: color</b></td><td><select id="clock_row_color" class="form-control" style="width:130px;display:inline" data-p="clock_row_color" data-e="change">'
         + _opt("white", s.get("clock_row_color", "white"), "White")
         + _opt("yellow", s.get("clock_row_color", "white"), "Yellow / amber")
         + _opt("red", s.get("clock_row_color", "white"), "Red")
         + _opt("green", s.get("clock_row_color", "white"), "Green")
         + _opt("blue", s.get("clock_row_color", "white"), "Blue")
-        + '</select></td></tr>'
+        + '</select></td></tr></table>'
     )
+    # Clock controls live inside the View card for SL List and TfL DLR.
+    # DLR deliberately hides date/position/alignment: its clock is fixed HH:MM at bottom-right.
+    _clock_show = "" if int(s.get("listmode", 0)) in (1, 2) else "display:none;"
+    clock_inline_html = ''.join([
+        '<div id="clock-list-section" style="', _clock_show, '">',
+        '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
+        '<details><summary>&#128336; ', T["clock"], '</summary>',
+        clock_row_html,
+        '</details></div>'
+    ])
+
     # dest_scroll
     dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long destination names")
-
-    # rt_indicator
-    rt_indicator_html = _chk("RT_INDICATOR", s["rt_indicator"], "/?rt_indicator=switch", T["rt_indicator"])
     listcolor_html = _chk("LISTCOLOR", s["listcolor"], "/?listcolor=switch", T["list_colors_line"])
     listcolor_time_html = _chk("LISTCOLOR_TIME", s.get("listcolor_time", 0), "/?listcolor_time=switch", T["list_colors_time"])
+
+    # View-specific colour controls: only relevant to SL List and TfL DLR.
+    _view_colour_show = "" if int(s.get("listmode", 0)) in (1, 2) else "display:none;"
+    view_color_toggles = ''.join([
+        '<div id="view-colour-section" style="', _view_colour_show, '">',
+        '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
+        '<details><summary>🎨 Line / Minute colour</summary>',
+        listcolor_html, listcolor_time_html,
+        '</details></div>'
+    ])
+
+    # Connection-only advanced tools. Their backend routes already exist;
+    # this merely restores the controls inside a collapsed subsection.
+    connection_advanced = ''.join([
+        '<details style="margin-top:12px"><summary>&#9881; ', T["advanced"], '</summary>',
+        '<div style="margin-top:8px">',
+        '<div class="toggle-row"><span class="toggle-label">', T["timer_title"].split(' - ')[0], '</span>',
+        "<button type='button' class='btn btn-sm' onclick=\"location.href='/?timer=true'\">Open</button></div>",
+        '<div class="toggle-row"><span class="toggle-label">', T["rotation"], '</span>',
+        '<button type="button" class="btn btn-sm" data-u="/?rotate=true">', T["rotation"], '</button></div>',
+        '<div class="toggle-row" style="border-bottom:none"><label for="wifi_power" class="toggle-label">', T["power"], '</label>',
+        '<input type="number" id="wifi_power" class="form-control" min="7" max="20" step="1" value="', str(s.get("power", 20)), '" data-p="power" data-e="change" style="width:84px"></div>',
+        '</div></details>'
+    ])
 
     # navbar led toggle: on_off_counter == 0 means display currently off
     led_off_cls = "" if int(varinit.on_off_counter) else " led-off"
@@ -489,21 +596,18 @@ def html():
         "LED_OFF_CLS": led_off_cls,
         "SIG_BARS": sig_bars,
         "IP_DISPLAY": ip,
+        "T_CONNECTIONS": T.get("connections", "Connections"),
         "T_WIFI_LABEL": T["network"],
         "SSID_OPTIONS": ssid_opt,
         "NET_DIS": net_dis,
         "T_PASSWORD": T["password"],
         "T_CONNECT": T["connect"],
-        "T_ROTATION": T["rotation"],
-        "T_POWER": T["power"],
-        "POWER_VAL": str(s["power"]),
+        "CONNECTION_ADVANCED": connection_advanced,
         "DNS_SECTION": dns_html,
         "T_NETWORK_LABEL": T["search"],
-        "MULTIPLE_SECTION": mult_html,
         "COUNTRY_FLAG": country_flag,
         "OPERATOR": op, "COMBINED_LIST": combined_list,
         "SCREEN_BUTTONS": screen_btns, "SCREEN_BTN_DISP": screen_btn_disp,
-        "DISRUPTIONS": disruptions,
         "STATION_PH": station_ph, "SEARCH_DIS": search_dis,
         "T_SEARCH": T["_search"],
         "OPBTN_PULSE": 'style="animation:guide-pulse 2.5s ease-in-out infinite"' if (not co or not stn["operator"]) else "",
@@ -511,7 +615,7 @@ def html():
         "RESULTS": varinit.results, "RESULT_DIS": result_dis,
         "RESULT_STYLE": result_style,
         "T_NO_DEPARTURES": T["no_departures"],
-        "MAXDEST_OPTIONS": maxdest_opt,
+        "MAXDEST_OPTIONS": maxdest_opt, "MAXDEST_DISABLED": maxdest_disabled,
         "METRO_SECTION": metro_html, "SL_SECTION": sl_section,
         "BUS_SECTION": bus_html,
         "TRAIN_CHK": train_html, "TRAM_SECTION": tram_html,
@@ -521,26 +625,24 @@ def html():
         "DIRECTION_SECTION": dir_html,
         "SCROLL_SECTION": scroll_html,
         "T_TRAFFIC_TYPES": T["traffic_types"],
-        "LISTMODE_CHK": listmode_html, "CLOCKTIME_CHK": clock_html,
+        "LISTMODE_CHK": listmode_html, "VIEW_COLOR_TOGGLES": view_color_toggles, "CUSTOM_SCROLL_HTML": custom_scroll_html, "CLOCKTIME_CHK": clock_html,
+        "CLOCK_INLINE_HTML": clock_inline_html,
         "DEVIATIONS_SECTION": devs_html,
         "SLEEP_CHK": sleep_html, "BUTTON_MODE_CHK": button_mode_html, "SHOW_STATION_CHK": show_stn_html,
         "T_SAVE": T["save"],
         "T_ADVANCED": T["advanced"],
+        "T_CLOCK": T["clock"],
         "T_TONE": T["tone"], "TONE_SWATCHES": tone_html,
-        "FONT_SIZE_ROW": font_size_row,
         "XS_LINE_ID_CHK": xs_line_id_chk,
         "DEST_SCROLL_CHK": dest_scroll_html,
-        "RT_INDICATOR_CHK": rt_indicator_html,
         "LISTCOLOR_CHK": listcolor_html,
         "LISTCOLOR_TIME_CHK": listcolor_time_html,
-        "CLOCK_ROW_HTML": clock_row_html,
         "T_LINE_LENGTH": T["line_length"],
         "T_LINE_LENGTH_HELP": "Most line numbers are 1-2 characters, so this often looks the same until a line uses a longer code.",
         "LINE_LENGTH_VAL": str(s["line_length"]),
         "T_SHOW_LINES": T["show_lines"],
         "SHOW_LINES_VAL": ",".join(s["show_lines"]) if isinstance(s["show_lines"], list) else str(s["show_lines"]),
         "STRIP_DEST_VAL": ",".join(s.get("strip_dest", [])) if isinstance(s.get("strip_dest"), list) else str(s.get("strip_dest", "")),
-        "DEST_ABBREV_VAL": ",".join([p[0] + "=" + p[1] for p in s.get("dest_abbrev", []) if isinstance(p, list) and len(p) == 2]) if isinstance(s.get("dest_abbrev"), list) else str(s.get("dest_abbrev", "")),
         "T_NO_MORE_DEP": T["no_more_departures_label"],
         "NO_MORE_DEP_VAL": str(s["no_more_departures"]),
         "T_MINS": T["mins_label"],

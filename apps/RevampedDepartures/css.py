@@ -46,12 +46,6 @@ button:disabled,.btn:disabled{opacity:.3;cursor:not-allowed;transform:none;box-s
 .switch .slider:before{content:"";position:absolute;height:18px;width:18px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:.2s}
 .switch input:checked+.slider{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent}
 .switch input:checked+.slider:before{transform:translateX(18px);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
-.seg-toggle-cb{display:none}
-.seg-toggle{display:flex;background:var(--surface2);border-radius:var(--r);padding:3px;gap:2px;border:1px solid var(--border);cursor:pointer;flex-shrink:0}
-.seg-toggle div{flex:1;height:28px;display:flex;align-items:center;justify-content:center;padding:0 10px;border-radius:8px;font-size:.8rem;font-weight:600;color:var(--muted);white-space:nowrap;transition:all .15s}
-.seg-toggle-cb+.seg-toggle div:first-child{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
-.seg-toggle-cb:checked+.seg-toggle div:first-child{background:none;color:var(--muted)}
-.seg-toggle-cb:checked+.seg-toggle div:last-child{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
 .dropdown{position:relative;display:inline-block}
 .dropbtn{height:38px;min-width:120px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);padding:0 12px;border-radius:var(--r);cursor:pointer;font-size:.85rem;transition:border-color .15s;display:inline-flex;align-items:center;gap:4px}
 .dropbtn:hover{border-color:var(--accent)}
