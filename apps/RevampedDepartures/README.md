@@ -1,53 +1,24 @@
-# Departures
+# RevampedDepartures
 
-This README covers the settings added by the "XS multi-stop merged list + clock row"
-change. The app has many other pre-existing settings (configured entirely through
-the on-device web UI); those aren't documented here.
+This README covers the changes I've made available in this version.
+General functionality is mirrored to the latest official `MatrixBox/Departures` version of **2026-08-29**.
 
-## Merged departure list for narrow (XS, <=64px) displays
+## General UI changes
 
-The existing **multiple stops** setting shows each configured stop as its own
-side-by-side list column. On a 64px-wide panel there's no room for a second
-column, so this had no visible effect there.
+I've personally found the UI somewhat difficult to navigate. Probs just me, but this is my playground! I'll change it if I want it thank you very much.
+Some main changes are moving around of options, making options show conditionally, forcing options that otherwise would maybe cause lag. That sorta thing.
 
-On narrow displays, enabling **multiple stops** now instead merges the
-departures of all configured stops (1-3) into a single list, sorted by
-departure time, with the line ID differentiating stops. Configure additional
-stops via the **1 / 2 / 3** buttons that appear once "multiple stops" is on
-(now shown for narrow panels too, previously only for wider ones).
+## New view
 
-Enable **XS line ID** as well so each row shows which line it's for.
+To test if I can - and I apparently could - I made a new view to show deparutres. It is based on the old(? idk, haven't been in a while) DLR departure screens in London. 
+Basically testing the water before moving on to a major new view which I had planned.
 
-## Abbreviate dest
+## Scrolling text
 
-Settings > **Abbreviate dest**. Comma-separated `long=short` pairs, e.g.:
+On the actual Stockholm Tub, sometimes scrolling text comes past for disruptions. I added that functionality to the Classic SL view the Departures app natively has.
+It can be set to show disruption information, or free text. The same logic is added to the DLR view I made myself.
 
-```
-Zürich=ZH,Bahnhof=Bhf
-```
+---
 
-Applied only when a destination name would otherwise be cut off to fit the
-display; a name that already fits is left untouched. Pairs are tried in
-order and stop as soon as the result fits.
-
-## Clock / date row
-
-Settings > **Clock row**. Replaces one row of the list with the current
-time (or date + time) instead of a departure.
-
-| Setting | Values | Notes |
-|---|---|---|
-| Clock row | on/off | master toggle |
-| Clock: show date | on/off | off = time only (`HH:MM`); on = `DD.MM.YY * HH:MM` |
-| Clock: position | top / bottom | which row is replaced |
-| Clock: align | left / center / right | centered time-only shows as `*** HH:MM ***` |
-| Clock: color | white / yellow / amber / red / green / blue | |
-
-Seconds are intentionally not shown: the list only repaints on the regular
-departure refresh cycle (~20s), so a seconds field would jump rather than
-tick.
-
-## Strip from dest
-
-Settings > **Strip from dest**. Comma-separated substrings to remove from
-destination names (e.g. to drop a suffix your local operator always adds).
+If you'd like to try out my changes and found any bugs or things looking not like they should, shoot me a message!
+> **DISCLAIMER:** This is an unofficial fork of MatrixBox!
