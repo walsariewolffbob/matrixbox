@@ -48,6 +48,93 @@ def ad_message():
     ad = json.loads(data)
     return str(ad[1]) if ad[0] else False
 
+def handle_button_event(event):
+    """Handle a classified MatrixBOX button event.
+
+    1 = short press
+    2 = long press
+
+    The real hardware classifier lives in lib/check_button.py.  The desktop
+    emulator injects the same event numbers, so the departures app owns the
+    resulting behaviour in both environments.
+    """
+    event = int(event)
+
+    if event == 1:
+        if int(varinit.settings.get("button_mode", 0)):
+            # Cycle: SL Classic -> SL List -> TfL DLR -> SL Classic.
+            _combined = int(varinit.settings.get(
+                "station_selection_mode",
+                1 if int(varinit.settings.get("multiple", 0)) else 0
+            )) == 1
+
+            if _combined:
+                _next_mode = 1
+            else:
+                _next_mode = (int(varinit.settings.get("listmode", 0)) + 1) % 3
+
+            varinit.settings["listmode"] = _next_mode
+
+            # Keep the same per-view standards used by the settings UI.
+            if _next_mode == 1:
+                varinit.settings["maxdest"] = 5 if _combined else 4
+                varinit.settings["listcolor"] = 1
+                varinit.settings["listcolor_time"] = 1
+                varinit.settings["list_line_display"] = 1
+                varinit.settings["clocktime"] = 0
+                if _combined:
+                    varinit.settings["clock_row_align"] = "left"
+
+            elif _next_mode == 2:
+                varinit.settings["maxdest"] = 3
+                varinit.settings["listcolor"] = 0
+                varinit.settings["listcolor_time"] = 0
+                varinit.settings["list_line_display"] = 0
+                varinit.settings["clocktime"] = 2
+                varinit.settings["dlr_scroll_delay"] = 15
+
+            else:
+                varinit.settings["maxdest"] = 3
+                varinit.settings["clocktime"] = 0
+                varinit.settings["dlr_scroll_delay"] = 60
+                varinit.shared["disruption_timer"] = time.monotonic()
+
+            # The normal app/emulator renderer loop performs the actual switch.
+            varinit.shared["force_view_rebuild"] = 2
+
+        else:
+            toggle_screen()
+
+    elif event == 2:
+        _station_mode = int(varinit.settings.get(
+            "station_selection_mode",
+            1 if int(varinit.settings.get("multiple", 0)) else 0
+        ))
+
+        _long_mode = int(varinit.settings.get("long_button_mode", 2))
+
+        # Multiple stations reserves view switching for later logic.
+        if _station_mode == 2 and _long_mode == 1:
+            _long_mode = 0
+            varinit.settings["long_button_mode"] = 0
+
+        if _long_mode == 0:
+            toggle_screen()
+
+        elif _long_mode == 1:
+            # Reuse the exact same view-cycling behavior as short press,
+            # without changing the saved short-press preference.
+            _saved_short_mode = int(varinit.settings.get("button_mode", 0))
+            varinit.settings["button_mode"] = 1
+            try:
+                handle_button_event(1)
+            finally:
+                varinit.settings["button_mode"] = _saved_short_mode
+
+        else:
+            varinit.exit = True
+
+
 def check_button():
     if varinit.last_button_state:
         if not varinit.button.value:
@@ -58,10 +145,9 @@ def check_button():
                 while not varinit.button.value and x < varinit.button_delay * 2:
                     x += 1
                 if x > varinit.button_delay and not varinit.group.hidden:
-                    varinit.exit = True
+                    handle_button_event(2)
                 else:
-                    nightcheck(_switch=True, turnon=varinit.group.hidden)
-                    refresh()
+                    handle_button_event(1)
     varinit.last_button_state = varinit.button.value
 
 def check_timer():
@@ -418,6 +504,34 @@ def refresh(times = 2):
 def lights(switch):    
     varinit.group.hidden = True
     if switch: colors()
+
+def get_screen_state():
+    """Return True when the display is actually visible."""
+    return not bool(varinit.group.hidden)
+
+def set_screen_state(on):
+    """Explicitly set the display ON/OFF. Safe to call repeatedly."""
+    _on = bool(on)
+
+    # Idempotent guard: if the display is already in the requested state,
+    # do nothing. This avoids unnecessary refreshes from repeated remote
+    # ON/OFF commands (for example from Home Assistant).
+    if get_screen_state() == _on:
+        varinit.on_off_counter = 1 if _on else 0
+        return _on
+
+    varinit.on_off_counter = 1 if _on else 0
+
+    if _on:
+        varinit.shared["nightcount"] = 0
+
+    lights(_on)
+    refresh()
+    return get_screen_state()
+
+def toggle_screen():
+    """Toggle from the display's actual current state."""
+    return set_screen_state(not get_screen_state())
 
 def nightcheck(force=False, _switch=False, turnon=False):
     if not check_timer(): 
@@ -1413,10 +1527,44 @@ def dlr_mode():
     if varinit.shared["loop_counter"] == -7:
         reset()
 
+    # Match the existing SL startup/loading experience. DLR normally uses the
+    # split top/bottom surfaces, but the established station/direction splash is
+    # drawn on the full-screen list surface. Show it once before the first DLR
+    # departure fetch, then the next DLR pass restores the normal split layout.
+    if varinit.shared["startup"]:
+        cls(topbottom)
+        varinit.tg1.y, varinit.tg2.y, varinit.tg3.y = -32, -16, 0
+        list_splash()
+        refresh()
+        varinit.shared["startup"] = False
+        return time.monotonic() - varinit.updatedelay + 2
+
+    # Restore the physical DLR split layout after the startup splash.
+    varinit.tg1.y, varinit.tg2.y, varinit.tg3.y = 0, 16, 32
+
     trainlist = reformat_data(get_departure())
     if not isinstance(trainlist, list) or not trainlist:
         cls(top)
-        cls(bottom, _refresh=True)
+        cls(bottom)
+
+        _msg = str(trainlist).strip() if trainlist is not None else ""
+        _no_more = str(varinit.settings.get("no_more_departures", "")).strip()
+        if not _no_more:
+            _no_more = dicts.language[varinit.settings["language"]]["display"]["no_more_departures"]
+
+        # DLR empty state: keep it static and readable. The text comes directly
+        # from settings.txt (`no_more_departures`) and is shown on the large top
+        # line; the lower half remains blank.
+        if _no_more and (_no_more in _msg or not _msg):
+            varinit.currentfont = 0
+            renderstring(_no_more, 1, large=True, _cls=top)
+        elif _msg:
+            # Preserve useful non-empty status/error strings rather than hiding
+            # them, while still keeping DLR's lower half clear.
+            varinit.currentfont = 0
+            renderstring(_msg, 1, large=True, _cls=top)
+
+        refresh()
         return time.monotonic()
 
     rows = [row[:] for row in trainlist[:3] if isinstance(row, list) and len(row) >= 4]
@@ -1432,7 +1580,12 @@ def dlr_mode():
     _lower_value_right = max(0, _dlr_clock_x - 2) if _show_dlr_clock else varinit.if_long
 
     def _draw_row(row, number, bmp, y, font_index):
-        prefix = str(number) + " "
+        # Shared List/DLR line-label mode:
+        #   0 = visible row numbers (1, 2, 3...)
+        #   1 = actual transit line number/id from departure data
+        _line_mode = int(varinit.settings.get("list_line_display", 0))
+        _line_label = str(row[1]).strip() if _line_mode else str(number)
+        prefix = _line_label + " "
         raw_dest = str(row[2]).split('(')[0].split(" via")[0].strip()
         dest = raw_dest
         value = str(row[3])
@@ -1714,6 +1867,10 @@ def list_mode(mini=False, half=False):
             for x, all in enumerate(trainlist):
 
                 is_clock_row = len(all) > 4 and all[4] == CLOCK_ROW_MARK
+                # Shared List/DLR line-label mode. SL List defaults to actual
+                # line numbers, but can instead show visible row numbers 1..4.
+                if not is_clock_row and not int(varinit.settings.get("list_line_display", 1)):
+                    all[1] = str(x + 1)
                 all[2] = all[2].split('(')[0].split(" via")[0]#.lower()
                 _strip_dest = varinit.settings.get("strip_dest", [])
                 if isinstance(_strip_dest, list):
@@ -1927,8 +2084,21 @@ def savesettings(_settings=varinit.settings, saved=dicts.language[varinit.settin
         print("Saved!")
     except: saved = "Read only"
     varinit.group.hidden = False; refresh()
-    sysprint(saved, 0, color="red", shading=True, _refresh=True, ontop=True)
-    reset_scroll(_delay=0.5)
+
+    if int(varinit.settings.get("listmode", 0)) == 2:
+        # DLR's visible top surface is `top`, while the generic ontop system
+        # message path targets the full-screen list bitmap. Draw the same red,
+        # shaded notice directly onto DLR's visible top bitmap, then restore DLR.
+        cls(top)
+        renderstring(saved + " ", 0, smallfont=True, sys_msg="red",
+                     shading=True, invertcolor=2, target_bmp=top, target_offs=0)
+        refresh()
+        time.sleep(0.5)
+        dlr_mode()
+        varinit.shared["scroll_timer"] = time.monotonic()
+    else:
+        sysprint(saved, 0, color="red", shading=True, _refresh=True, ontop=True)
+        reset_scroll(_delay=0.5)
 
 try: 
     import font_mini

@@ -63,7 +63,7 @@ PAGE_TPL = """<!DOCTYPE html>
 <div class="nav-spacer"></div>
 <div class="nav-info"><span id="clk"></span><span>{IP_DISPLAY}</span></div>
 {SIG_BARS}
-<button type="button" class="nav-led{LED_OFF_CLS}" id="ledbtn" onclick="fetch('/?onoff=active').then(function(){document.getElementById('ledbtn').classList.toggle('led-off')})" title="Turn display on/off">&#x1F4A1;</button>
+<button type="button" class="nav-led{LED_OFF_CLS}" id="ledbtn" onclick="fetch('/?onoff=active').then(function(r){return r.json()}).then(function(s){document.getElementById('ledbtn').classList.toggle('led-off',!s.on)})" title="Turn display on/off">&#x1F4A1;</button>
 <a class="nav-x" href="/exit" title="Exit">&#x2715;</a>
 </nav>
 <div class="page">
@@ -84,7 +84,8 @@ PAGE_TPL = """<!DOCTYPE html>
 {CONNECTION_ADVANCED}
 </div>
 <div class="card">
-<div class="section-title">{T_NETWORK_LABEL}</div>
+<div class="section-title">Station selection</div>
+{STATION_SELECTION_MODE}
 <div class="form-row" style="margin-top:12px">
 <div class="dropdown" id="opdd"><button type="button" class="dropbtn" id="opbtn" {OPBTN_PULSE} onclick="toggleDropdown(event)">{COUNTRY_FLAG} {OPERATOR} &#9660;</button>
 <div class="dropdown-content">{COMBINED_LIST}</div></div>
@@ -134,10 +135,10 @@ PAGE_TPL = """<!DOCTYPE html>
 {CUSTOM_SCROLL_HTML}
 {CLOCK_INLINE_HTML}
 {VIEW_COLOR_TOGGLES}
-{BUTTON_MODE_CHK}
 </div>
 <div class="card"><details>
 <summary>&#9881; {T_ADVANCED}</summary>
+{BUTTON_MODE_CHK}
 <table>
 <tr><td><b>{T_TONE}</b></td><td><div style="display:flex;gap:10px">{TONE_SWATCHES}</div></td></tr>
 <tr><td><b>{T_LINE_LENGTH}</b></td><td><input type="text" id="line_length" class="form-control" style="width:80px;display:inline" placeholder="{LINE_LENGTH_VAL}" data-p="line_length" data-e="blur"><br><small>{T_LINE_LENGTH_HELP}</small></td></tr>
@@ -166,6 +167,11 @@ function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.queryS
 function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
 function doScan(){fetch('/checknet').then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('ssid');sel.innerHTML=h;sel.disabled=false;document.getElementById('password').disabled=false;document.getElementById('connect_wifi').disabled=false;}).catch(function(){});}
 
+function setStationSelectionMode(v,el){
+var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+el.classList.add('on');
+fetch('/?station_selection_mode='+encodeURIComponent(v)).then(function(){location.reload();});
+}
 function setFont(v,el){fetch('/?font_size='+v);var bs=el.parentNode.querySelectorAll('button');bs.forEach(function(b){b.classList.remove('on');});el.classList.add('on');}
 function setColor(v,el){fetch('/?color='+v);el.parentNode.querySelectorAll('.color-swatch-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');}
 function updateDlrScrollControls(){
@@ -190,15 +196,47 @@ fetch('/?dlr_scroll_content='+encodeURIComponent(v));
 var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
 el.classList.add('on');updateDlrScrollControls();
 }
+function setListLineDisplay(v,el){
+fetch('/?list_line_display='+encodeURIComponent(v));
+var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+el.classList.add('on');
+}
+function applyButtonViewLock(v){
+var lm=document.getElementById('listmode');
+if(lm){
+var combined=document.getElementById('station-selection-mode');
+var cb=combined&&combined.querySelector('button.on');
+var combinedLocked=!!(cb&&cb.textContent==='Combined list');
+var locked=combinedLocked;
+lm.disabled=locked;
+lm.style.opacity=locked?'.35':'1';
+}
+}
+function setButtonMode(v,el){
+fetch('/?button_mode='+encodeURIComponent(v)).then(function(r){
+if(!r.ok)return;
+var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+el.classList.add('on');
+applyButtonViewLock(v);
+});
+}
+function setLongButtonMode(v,el){
+fetch('/?long_button_mode='+encodeURIComponent(v)).then(function(r){
+if(!r.ok)return;
+var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+el.classList.add('on');
+});
+}
 document.querySelectorAll('[data-u],[data-p]').forEach(function(el){
 el.addEventListener(el.dataset.e||'click',function(ev){
 var u=el.dataset.u;
 if(!u){var v=ev.target.value.replace(/#/g,'%23');if(el.dataset.enc)v=encodeURIComponent(v);u='/?'+el.dataset.p+'='+v;}
 fetch(u,{method:'GET'});
 if(el.id==='BUS'){var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=ev.target.checked?'':'none';}
-if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';}else{if(ct)ct.value='0';}updateDlrScrollControls();}
+if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime'),lds=document.getElementById('list-line-display');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="1"]');if(b)b.classList.add('on');}}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="0"]');if(b)b.classList.add('on');}}else{if(ct)ct.value='0';}updateDlrScrollControls();}
 });});
 updateDlrScrollControls();
+applyButtonViewLock({BUTTON_MODE_VALUE});
 </script>
 </form></div></body></html>"""
 
@@ -308,10 +346,25 @@ def html():
             "of": int(_st["offset"]), "di": int(_st["direction"])}
     stn_json = json.dumps(_stn_data)
 
+    # Station selection selector. Mode 1 maps to the legacy multiple-stop/combined-list logic.
+    # Mode 2 is intentionally reserved for the future true Multiple mode and currently behaves like Single.
+    _station_selection_mode = int(s.get("station_selection_mode", 1 if int(s.get("multiple", 0)) else 0))
+    if _station_selection_mode not in (0, 1, 2):
+        _station_selection_mode = 1 if int(s.get("multiple", 0)) else 0
+    _combined_station_mode = _station_selection_mode == 1
+    station_selection_html = ''.join([
+        '<div style="margin-top:10px">',
+        '<span class="seg" id="station-selection-mode" style="width:100%">',
+        '<button type="button" onclick="setStationSelectionMode(0,this)" class="', ("on" if _station_selection_mode == 0 else ""), '">Single</button>',
+        '<button type="button" onclick="setStationSelectionMode(1,this)" class="', ("on" if _station_selection_mode == 1 else ""), '">Combined list</button>',
+        '<button type="button" onclick="setStationSelectionMode(2,this)" class="', ("on" if _station_selection_mode == 2 else ""), '">Multiple</button>',
+        '</span></div>'
+    ])
+
     # screen buttons (used both for wide side-by-side lists and XS merged list stop selection)
     screen_btns = ""
     screen_btn_disp = ""
-    if not int(s["multiple"]):
+    if _station_selection_mode != 1:
         screen_btn_disp = "visibility:hidden;"
     ns = 2 if if_long == 128 else 3
     _p = []
@@ -334,12 +387,12 @@ def html():
 
     # maxdest options. List and DLR have fixed physical row counts.
     _view_mode = int(s.get("listmode", 0))
-    _maxdest_value = 3 if _view_mode == 2 else (4 if _view_mode == 1 else s["maxdest"])
+    _maxdest_value = 5 if _combined_station_mode else (3 if _view_mode == 2 else (4 if _view_mode == 1 else s["maxdest"]))
     _p = []
     for i in range(1, 21):
         _p.append(_opt(i, _maxdest_value, str(i)))
     maxdest_opt = "".join(_p)
-    maxdest_disabled = " disabled" if _view_mode in (1, 2) else ""
+    maxdest_disabled = " disabled" if _combined_station_mode or _view_mode in (1, 2) else ""
 
     # metro section
     metro_html = _chk("METRO", stn["METRO"], "/?type=metro", "Metro")
@@ -423,7 +476,7 @@ def html():
     if if_long > 64 and varinit.display.height <= 32:
         listmode_html = ''.join([
             '<div class="col"><label for="listmode">View</label>',
-            '<select id="listmode" name="listmode" class="form-control" data-p="listmode" data-e="change">',
+            '<select id="listmode" name="listmode" class="form-control" data-p="listmode" data-e="change"' + (" disabled style=\"opacity:.35\"" if _combined_station_mode else "") + '>',
             _opt(0, s["listmode"], "SL Classic"),
             _opt(1, s["listmode"], "SL List"),
             _opt(2, s["listmode"], "TfL DLR"),
@@ -503,7 +556,38 @@ def html():
     # sleep
     sleep_html = _chk("sleep", s["sleep"], "/?sleep=1", T["turn_off"])
 
-    button_mode_html = ""
+    _button_mode = int(s.get("button_mode", 0))
+    _long_button_mode = int(s.get("long_button_mode", 2))
+    if _long_button_mode not in (0, 1, 2):
+        _long_button_mode = 2
+
+    _short_locked = _station_selection_mode == 2
+
+    # Multiple mode reserves long-press Switch view for future station logic.
+    # Toggle screen is forced/default there.
+    if _station_selection_mode == 2:
+        _long_button_mode = 0
+
+    button_mode_html = ''.join([
+        '<div style="margin:12px 0 10px 0">',
+        '<label class="control-label" style="margin-bottom:6px">Short button press</label>',
+        '<span class="seg" id="button-behaviour" style="width:100%;', ("opacity:.35;pointer-events:none;" if _short_locked else ""), '">',
+        '<button type="button" data-v="0" onclick="setButtonMode(0,this)" class="', ("on" if _button_mode == 0 else ""), '">Toggle screen</button>',
+        '<button type="button" data-v="1" onclick="setButtonMode(1,this)" class="', ("on" if _button_mode == 1 else ""), '">Switch view</button>',
+        '</span>',
+        '</div>',
+        '<div style="margin:10px 0 14px 0">',
+        '<label class="control-label" style="margin-bottom:6px">Long button press</label>',
+        '<span class="seg" id="long-button-behaviour" style="width:100%">',
+        '<button type="button" data-v="0" onclick="setLongButtonMode(0,this)" class="', ("on" if _long_button_mode == 0 else ""), '">Toggle screen</button>',
+        '<button type="button" data-v="1" onclick="setLongButtonMode(1,this)"',
+        (" disabled style=\"opacity:.35;cursor:not-allowed\"" if _station_selection_mode == 2 else ""),
+        ' class="', ("on" if _long_button_mode == 1 else ""), '">Switch view</button>',
+        '<button type="button" data-v="2" onclick="setLongButtonMode(2,this)" class="', ("on" if _long_button_mode == 2 else ""), '">Exit app</button>',
+        '</span>',
+        '</div>',
+        '<div style="border-top:1px solid var(--border);margin:0 0 12px 0"></div>'
+    ])
 
     # show station
     show_stn_html = _chk("show_my_station", s["show_my_station"], "/?show_station=1", T["show_station"])
@@ -538,10 +622,10 @@ def html():
         + _opt("bottom", s.get("clock_row_position", "bottom"), "Bottom row")
         + _opt("top", s.get("clock_row_position", "bottom"), "Top row")
         + '</select></td></tr>'
-        '<tr><td><b>Clock: align</b></td><td><select id="clock_row_align" class="form-control" style="width:130px;display:inline" data-p="clock_row_align" data-e="change">'
-        + _opt("left", s.get("clock_row_align", "left"), "Left")
-        + _opt("center", s.get("clock_row_align", "left"), "Center")
-        + _opt("right", s.get("clock_row_align", "left"), "Right")
+        '<tr><td><b>Clock: align</b></td><td><select id="clock_row_align" class="form-control" style="width:130px;display:inline" data-p="clock_row_align" data-e="change"' + (" disabled" if _combined_station_mode else "") + '>'
+        + _opt("left", "left" if _combined_station_mode else s.get("clock_row_align", "left"), "Left")
+        + _opt("center", "left" if _combined_station_mode else s.get("clock_row_align", "left"), "Center")
+        + _opt("right", "left" if _combined_station_mode else s.get("clock_row_align", "left"), "Right")
         + '</select></td></tr>'
         + '</table></div>'
         + '<div id="clock-list-color-separator" style="border-top:1px solid var(--border);margin:10px 0;' + ("" if int(s.get("listmode", 0)) == 1 else "display:none;") + '"></div>'
@@ -566,8 +650,29 @@ def html():
 
     # dest_scroll
     dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long destination names")
-    listcolor_html = _chk("LISTCOLOR", s["listcolor"], "/?listcolor=switch", T["list_colors_line"])
-    listcolor_time_html = _chk("LISTCOLOR_TIME", s.get("listcolor_time", 0), "/?listcolor_time=switch", T["list_colors_time"])
+    # Combined list standard: show both colour toggles ON (and disabled below).
+    _listcolor_value = 1 if _combined_station_mode else s["listcolor"]
+    _listcolor_time_value = 1 if _combined_station_mode else s.get("listcolor_time", 0)
+    listcolor_html = _chk("LISTCOLOR", _listcolor_value, "/?listcolor=switch", T["list_colors_line"])
+    if _combined_station_mode:
+        listcolor_html = listcolor_html.replace('<div class="toggle-row">', '<div class="toggle-row" id="listcolor-row" style="opacity:.35">', 1).replace('id="LISTCOLOR"', 'id="LISTCOLOR" disabled', 1)
+    else:
+        listcolor_html = listcolor_html.replace('<div class="toggle-row">', '<div class="toggle-row" id="listcolor-row">', 1)
+    listcolor_time_html = _chk("LISTCOLOR_TIME", _listcolor_time_value, "/?listcolor_time=switch", T["list_colors_time"])
+    if _combined_station_mode:
+        listcolor_time_html = listcolor_time_html.replace('<div class="toggle-row">', '<div class="toggle-row" id="listcolor-time-row" style="opacity:.35">', 1).replace('id="LISTCOLOR_TIME"', 'id="LISTCOLOR_TIME" disabled', 1)
+    else:
+        listcolor_time_html = listcolor_time_html.replace('<div class="toggle-row">', '<div class="toggle-row" id="listcolor-time-row">', 1)
+    _line_display_default = 0 if int(s.get("listmode", 0)) == 2 else 1
+    _line_display = int(s.get("list_line_display", _line_display_default))
+    line_display_html = ''.join([
+        '<div style="margin-bottom:10px;opacity:', ('.35' if _combined_station_mode else '1'), '"><label class="control-label" style="margin-bottom:6px">Line display</label>',
+        '<span class="seg" id="list-line-display" style="width:100%">',
+        '<button type="button" data-v="0" onclick="setListLineDisplay(0,this)"', (' disabled' if _combined_station_mode else ''), ' class="', ("on" if _line_display == 0 else ""), '">Departure order</button>',
+        '<button type="button" data-v="1" onclick="setListLineDisplay(1,this)"', (' disabled' if _combined_station_mode else ''), ' class="', ("on" if _line_display == 1 else ""), '">Line number</button>',
+        '</span></div>',
+        '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
+    ])
 
     # View-specific colour controls: only relevant to SL List and TfL DLR.
     _view_colour_show = "" if int(s.get("listmode", 0)) in (1, 2) else "display:none;"
@@ -575,7 +680,7 @@ def html():
         '<div id="view-colour-section" style="', _view_colour_show, '">',
         '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
         '<details><summary>🎨 Line / Minute colour</summary>',
-        listcolor_html, listcolor_time_html,
+        line_display_html, listcolor_html, listcolor_time_html,
         '</details></div>'
     ])
 
@@ -593,8 +698,8 @@ def html():
         '</div></details>'
     ])
 
-    # navbar led toggle: on_off_counter == 0 means display currently off
-    led_off_cls = "" if int(varinit.on_off_counter) else " led-off"
+    # Navbar lightbulb reflects the display's actual current visibility.
+    led_off_cls = "" if functions.get_screen_state() else " led-off"
     sig_bars = _sig_bars(_rssi(functions))
 
     # build page using pre-split template (single pass, no scanning)
@@ -613,6 +718,7 @@ def html():
         "CONNECTION_ADVANCED": connection_advanced,
         "DNS_SECTION": dns_html,
         "T_NETWORK_LABEL": T["search"],
+        "STATION_SELECTION_MODE": station_selection_html,
         "COUNTRY_FLAG": country_flag,
         "OPERATOR": op, "COMBINED_LIST": combined_list,
         "SCREEN_BUTTONS": screen_btns, "SCREEN_BTN_DISP": screen_btn_disp,
@@ -636,7 +742,7 @@ def html():
         "LISTMODE_CHK": listmode_html, "VIEW_COLOR_TOGGLES": view_color_toggles, "CUSTOM_SCROLL_HTML": custom_scroll_html, "CLOCKTIME_CHK": clock_html,
         "CLOCK_INLINE_HTML": clock_inline_html,
         "DEVIATIONS_SECTION": devs_html,
-        "SLEEP_CHK": sleep_html, "BUTTON_MODE_CHK": button_mode_html, "SHOW_STATION_CHK": show_stn_html,
+        "SLEEP_CHK": sleep_html, "BUTTON_MODE_CHK": button_mode_html, "BUTTON_MODE_VALUE": str(_button_mode), "SHOW_STATION_CHK": show_stn_html,
         "T_SAVE": T["save"],
         "T_ADVANCED": T["advanced"],
         "T_CLOCK": T["clock"],

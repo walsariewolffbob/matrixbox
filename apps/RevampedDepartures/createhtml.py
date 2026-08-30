@@ -386,16 +386,55 @@ def huvudsidan(request):
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "button_mode" in request.params:
-        varinit.settings["button_mode"] = 1 - int(varinit.settings.get("button_mode", 0))
+        try:
+            _button_mode = int(request.params["button_mode"])
+            if _button_mode not in (0, 1):
+                raise ValueError
+            if int(varinit.settings.get("station_selection_mode", 0)) == 2:
+                return (409, {}, "")
+            varinit.settings["button_mode"] = _button_mode
+        except:
+            return (400, {}, "")
+        functions.savesettings()
+        return (200, {}, "")
+    elif "long_button_mode" in request.params:
+        try:
+            _long_button_mode = int(request.params["long_button_mode"])
+            if _long_button_mode not in (0, 1, 2):
+                raise ValueError
+
+            _station_mode = int(varinit.settings.get("station_selection_mode", 0))
+            if _station_mode == 2 and _long_button_mode == 1:
+                _long_button_mode = 0
+
+            varinit.settings["long_button_mode"] = _long_button_mode
+        except:
+            return (400, {}, "")
+        functions.savesettings()
         return (200, {}, "")
     elif "show_station" in request.params:
         varinit.settings["show_my_station"] = 1 - varinit.settings["show_my_station"]
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "buses_option" in request.params:
-        varinit.settings["stations"][num]["buses_option"] = request.params["buses_option"]
+        varinit.settings["stations"][num]["buses_option"] = 1 - int(varinit.settings["stations"][num].get("buses_option", 0))
+
+        # Re-parse the most recently fetched SL data with the new Night buses
+        # filter immediately, then pulse the active renderer so ON/OFF is visible
+        # without waiting for the normal departures update interval.
         varinit.use_cached_data = True
-        functions.switch(_screen=False)
+        varinit.shared["scroll_timer"] = 0
+        varinit.shared["loop_counter"] = 0
+
+        _mode = int(varinit.settings.get("listmode", 0))
+        if _mode == 2:
+            varinit.shared["force_view_rebuild"] = 1
+        else:
+            functions.switch(_screen=False)
+            if _mode == 0:
+                functions.scroll_mode()
+            elif _mode == 1:
+                functions.list_mode()
         return (200, {}, "")
     elif "type" in request.params:
         varinit.settings["stations"][num][request.params["type"].upper()] = 1 - int(varinit.settings["stations"][num][request.params["type"].upper()])
@@ -416,9 +455,12 @@ def huvudsidan(request):
             functions.switch(_screen=False)
         return (200, {}, "")
     elif "maxdest" in request.params:
-        # List/DLR own this setting because their physical layouts have fixed row counts.
+        # Combined list owns the fetch depth even though SL List has four visible rows.
         _mode = int(varinit.settings.get("listmode", 0))
-        if _mode == 2:
+        _combined = int(varinit.settings.get("station_selection_mode", 1 if int(varinit.settings.get("multiple", 0)) else 0)) == 1
+        if _combined:
+            varinit.settings["maxdest"] = 5
+        elif _mode == 2:
             varinit.settings["maxdest"] = 3
         elif _mode == 1:
             varinit.settings["maxdest"] = 4
@@ -430,8 +472,41 @@ def huvudsidan(request):
         varinit.settings["stations"][num]["direction"] = int(request.params["direction"])
         functions.switch(_screen=False)
         return (200, {}, "")
+    elif "station_selection_mode" in request.params:
+        try:
+            _station_mode = int(request.params["station_selection_mode"])
+        except:
+            _station_mode = 0
+        if _station_mode not in (0, 1, 2):
+            _station_mode = 0
+        varinit.settings["station_selection_mode"] = _station_mode
+        # Only Combined list activates the original multiple-stop logic.
+        # Multiple is reserved for later and deliberately behaves like Single for now.
+        varinit.settings["multiple"] = 1 if _station_mode == 1 else 0
+
+        # In Multiple mode, long-press view switching is reserved for future
+        # multiple-station behavior. Toggle screen is the standard instead.
+        if _station_mode == 2:
+            varinit.settings["long_button_mode"] = 0
+        if _station_mode == 1:
+            # Combined list is an SL List-only layout. Load five destinations,
+            # force clock alignment left, but deliberately preserve show_clock_row.
+            _old_view = int(varinit.settings.get("listmode", 0))
+            varinit.settings["listmode"] = 1
+            varinit.settings["maxdest"] = 5
+            varinit.settings["clock_row_align"] = "left"
+            # Combined list standard: line-number display and both colour toggles ON.
+            varinit.settings["list_line_display"] = 1
+            varinit.settings["listcolor"] = 1
+            varinit.settings["listcolor_time"] = 1
+            if _old_view != 1:
+                varinit.shared["force_view_rebuild"] = 2
+        functions.switch(_screen=False)
+        return (200, {}, "")
     elif "multiple" in request.params:
+        # Backwards-compatible legacy toggle. Keep the new UI mode in sync.
         varinit.settings["multiple"] = 1 - varinit.settings["multiple"]
+        varinit.settings["station_selection_mode"] = 1 if int(varinit.settings["multiple"]) else 0
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "screen" in request.params:
@@ -457,10 +532,34 @@ def huvudsidan(request):
         print(varinit.settings["timer"])
         return (200, {}, mkhtml())
     elif "onoff" in request.params:
-        varinit.on_off_counter = 1 - varinit.on_off_counter
-        functions.nightcheck()
-        functions.refresh()
-        return (200, {}, "")
+        _state = functions.toggle_screen()
+        return (200, {"Content-Type": "application/json"}, json.dumps({
+            "screen": "on" if _state else "off",
+            "on": bool(_state)
+        }))
+    elif "screen_power" in request.params:
+        _command = str(request.params["screen_power"]).strip().lower()
+        if _command == "on":
+            _state = functions.set_screen_state(True)
+        elif _command == "off":
+            _state = functions.set_screen_state(False)
+        elif _command == "toggle":
+            _state = functions.toggle_screen()
+        else:
+            return (400, {"Content-Type": "application/json"}, json.dumps({
+                "error": "screen_power must be on, off or toggle"
+            }))
+
+        return (200, {"Content-Type": "application/json"}, json.dumps({
+            "screen": "on" if _state else "off",
+            "on": bool(_state)
+        }))
+    elif "screen_state" in request.params:
+        _state = functions.get_screen_state()
+        return (200, {"Content-Type": "application/json"}, json.dumps({
+            "screen": "on" if _state else "off",
+            "on": bool(_state)
+        }))
     elif "color" in request.params: 
         varinit.settings["color"] = int(request.params["color"])
         functions.colors()
@@ -469,6 +568,9 @@ def huvudsidan(request):
     elif "listmode" in request.params:
         if varinit.display.width > 64 and varinit.display.height <= 32:
             mode = int(request.params["listmode"])
+            _combined = int(varinit.settings.get("station_selection_mode", 1 if int(varinit.settings.get("multiple", 0)) else 0)) == 1
+            if _combined:
+                mode = 1
             if mode in (0, 1, 2):
                 old_mode = int(varinit.settings.get("listmode", 0))
                 varinit.settings["listmode"] = mode
@@ -480,18 +582,29 @@ def huvudsidan(request):
                     varinit.settings["maxdest"] = 3
                     varinit.settings["listcolor"] = 0
                     varinit.settings["listcolor_time"] = 0
+                    varinit.settings["list_line_display"] = 0
                     varinit.settings["clocktime"] = 2
                     # DLR message lane benchmark: show lower departures for 15s
                     # before custom/disruption text is allowed to scroll.
                     varinit.settings["dlr_scroll_delay"] = 15
                 elif mode == 1:
-                    # SL List has exactly four visible departure rows. Its benchmark
-                    # starts with both line/minutes colour toggles enabled (white)
-                    # and Dynamic time display.
-                    varinit.settings["maxdest"] = 4
-                    varinit.settings["listcolor"] = 1
-                    varinit.settings["listcolor_time"] = 1
-                    varinit.settings["clocktime"] = 0
+                    if _combined:
+                        # Combined list keeps the user's line display/colour states,
+                        # but fixes the fetch depth and clock alignment.
+                        varinit.settings["maxdest"] = 5
+                        varinit.settings["clock_row_align"] = "left"
+                        varinit.settings["listcolor"] = 1
+                        varinit.settings["listcolor_time"] = 1
+                        varinit.settings["list_line_display"] = 1
+                    else:
+                        # SL List has exactly four visible departure rows. Its benchmark
+                        # starts with both line/minutes colour toggles enabled (white)
+                        # and Dynamic time display.
+                        varinit.settings["maxdest"] = 4
+                        varinit.settings["listcolor"] = 1
+                        varinit.settings["listcolor_time"] = 1
+                        varinit.settings["list_line_display"] = 1
+                        varinit.settings["clocktime"] = 0
                 else:
                     # Returning to the realistic SL Classic default starts at 3
                     # departures and Dynamic time display. Classic uses the same
@@ -502,9 +615,10 @@ def huvudsidan(request):
                     varinit.settings["dlr_scroll_delay"] = 60
                     varinit.shared["disruption_timer"] = time.monotonic()
                 if mode != old_mode:
-                    # The HTTP callback must not swap TileGrids while the renderer
-                    # is using them. The normal app/emulator loop consumes this flag.
-                    varinit.shared["force_view_rebuild"] = 1
+                    # Value 2 means a true View transition: the physical render
+                    # loop must show the existing ~2s logo/station/direction splash
+                    # before rebuilding the selected renderer.
+                    varinit.shared["force_view_rebuild"] = 2
         return (200, {}, "")
     elif "dlr_scroll_content" in request.params:
         mode = str(request.params.get("dlr_scroll_content", "none")).lower()
@@ -585,6 +699,18 @@ def huvudsidan(request):
             varinit.settings["clocktime"] = mode
         functions.switch(_screen=False)
         return (200, {}, "")
+    elif "list_line_display" in request.params:
+        try:
+            mode = int(request.params.get("list_line_display", 0))
+        except:
+            mode = 0
+        if mode in (0, 1):
+            varinit.settings["list_line_display"] = mode
+        if int(varinit.settings.get("listmode", 0)) in (1, 2):
+            functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
+        return (200, {}, "")
     elif "listcolor_time" in request.params:
         varinit.settings["listcolor_time"] = 1 - int(varinit.settings.get("listcolor_time", 0))
         if int(varinit.settings.get("listmode", 0)) in (1, 2):
@@ -635,7 +761,8 @@ def huvudsidan(request):
         return (200, {}, "")
     elif "clock_row_align" in request.params:
         v = request.params["clock_row_align"]
-        varinit.settings["clock_row_align"] = v if v in ("left", "center", "right") else "left"
+        _combined = int(varinit.settings.get("station_selection_mode", 1 if int(varinit.settings.get("multiple", 0)) else 0)) == 1
+        varinit.settings["clock_row_align"] = "left" if _combined else (v if v in ("left", "center", "right") else "left")
         if int(varinit.settings.get("listmode", 0)) in (1, 2):
             functions.refresh_clock_settings_now()
         else:
@@ -1003,6 +1130,7 @@ def _debug(request):
 def _ping_graph(request):
     varinit.ping = 1 - varinit.ping
     if not varinit.ping: return  (200, {}, mkhtml())
+    
     while varinit.ping:
         if functions.ping_screen(): break
     return (200, {}, mkhtml())

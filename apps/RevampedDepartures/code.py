@@ -11,10 +11,9 @@ varinit.debounce_delay = debounce_delay
 def check_button():
     b = check_if_button_pressed()
     if b == 1:
-        nightcheck(_switch=True, turnon=varinit.group.hidden)
-        refresh()
+        handle_button_event(1)
     elif b == 2:
-        varinit.exit = True
+        handle_button_event(2)
 
 delay = version_delay()
 #microcontroller.cpu.frequency = 240000000
@@ -73,11 +72,13 @@ while not varinit.exit:
         _rebuild_requested = int(varinit.shared.get("force_view_rebuild", 0))
         if _requested_mode != _active_view_mode or _rebuild_requested:
             _view_changed = (_requested_mode != _active_view_mode)
+            _splash_rebuild = (_rebuild_requested == 2)
             varinit.shared["force_view_rebuild"] = 0
 
-            # Only a true View change gets the deliberate loading interstitial.
-            # Filter/settings refreshes rebuild immediately without the 2 s delay.
-            if _view_changed:
+            # True View changes always get the existing ~2s loading splash:
+            # MatrixBOX logo + station, then direction(s) on line two.
+            # Ordinary filter/settings rebuilds remain immediate.
+            if _view_changed or _splash_rebuild:
                 view_switch_loading(2.0)
 
             rebuild_current_view()
