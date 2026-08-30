@@ -17,7 +17,7 @@ The same logic is added to the DLR view I made myself.
 
 ## Button management
 
-I felt a bit constrained in what one can do with the physical button on the box. As I only really run the departures app, I don't really feel like I need the exit function, for example.
+I felt a bit constrained in what one can do with the physical button on the box. As I only really run the departures app, I don't really feel like I need the exit function, for example. The odd time I run lastfm, I can use the webapp :-p
 So, while I was at it, I added the ability to choose its behaviour in the web-app.
 
 ## Future Preperations
