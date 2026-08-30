@@ -1,35 +1,56 @@
 # RevampedDepartures
 
-**This README covers the changes I've made available in this version. General functionality is mirrored to the latest official MatrixBox/Departures version of 2026-08-30.**
+**This README covers the changes I've made available in this version. General functionality is mirrored to the latest official MatrixBox/Departures app update of 2026-08-30.**
 
-## General UI changes
+## Minor updates
 
-I've personally found the UI somewhat difficult to navigate. (Probs just me, but this is my playground! I'll change it if I want to, thank you very much.) Some main changes are moving around of options, making options show conditionally, forcing options that otherwise would maybe cause things to come out weird or laggy. That sorta thing.
+**Web-app UI changes**
 
-## New view
+I've personally found the UI somewhat difficult to navigate. Some main changes are moving around of settings, making options show conditionally, forcing options that otherwise would perhaps cause things to come out weird or laggy, etc.
 
-To test if I can - and I apparently could - I made a new view to show departures. It is based on the old(? idk, haven't been in a while) DLR departure screens in London. Basically testing the water before moving on to a major new view which I had planned.
+**Dynamic times**
+
+In Stockholm, if a departure is more than 30mins away, it is usually shown as a clock time, rather than a minute countdown. I've added that option to the app. Showing everything as a countdown or as a set time is also still available.
+
+**Button management**
+
+As I only really run the departures app, I don't really feel like I always need the long-press exit function. The odd time I run lastfm, I can use the webapp.
+Therefore, I added the ability to choose its behaviour in the web-app. Both the short and long-press can be programmed.
+
+## New lay-out
+
+I made a new lay-out to show departures. It is based on the classic DLR departure screens in London. The top line shows the first departure in a larger font, the lower two lines the 2nd and 3rd in a smaller all-caps font. A clock can be added in the bottom right as well.
+
+The classic DLR screens don't show line numbers, as those are not used in London, rather numbers the upcoming departures in order. This could be confusing in Stockholm, so the order numbers can be swapped for line numbers. The colour-switching for both lines and minutes remaining is also available for the DLR-screens. I've mirrored these options to the SL-list screen the app supports natively.
 
 ## Scrolling text
 
-On the actual Stockholm Tub, sometimes scrolling text comes past for disruptions. I added that functionality to the Classic SL view the Departures app natively has. It can be set to show disruption information or free text. 
-The same logic is added to the DLR view I made myself.
+On the actual Stockholm Tunnelbana, sometimes scrolling text comes past for disruptions. I added a functionality to the Classic SL lay-out where free-text can also be added. When using free-text, the location of the message can be set to be before all scrolling departures, after the first, or after all departures have scrolled by. 
 
-## Button management
+The same logic is added to the DLR lay-out I made myself, both disruption information and free-text are available. The 2nd and 3rd departure line will disappear, the message will then scroll by. In DLR-mode, the interval for both disruptions and free-text can be manually set.
 
-I felt a bit constrained in what one can do with the physical button on the box. As I only really run the departures app, I don't really feel like I need the exit function, for example. The odd time I run lastfm, I can use the webapp :-p
-So, while I was at it, I added the ability to choose its behaviour in the web-app.
+## Remote control screen
 
-## Future Preperations
+I've added functionality to the screen on/off logic to be able to remotely control the screen. It works by typing a webadress in a browser, which sends that command to the box to either turn the screen on or off. Another command returns a JSON line, which could be used for integration purposes (for example, I've included my box in HomeAssistant as if it were a regular lamp).
 
-**Remote Control**
+The commands can be used as follows:
 
-I've prepared the screen on/off logic to be able to use some sort of "remote control" to turn the screen on or off in the future. This is still in the development phase, so the code is somewhat unstable there. This is me wanting to integrate the box into my HomeAssistant to turn on/off on a more developed schedule and along with the state of my lights at home.
+| **Webadress** | **Action** |
+|---|---|
+| http://YOUR-IP/?screen_power=off | Screen powers off |
+| http://YOUR-IP/?screen_power=on | Screen powers on |
+| http://YOUR-IP/?screen_state=1 | Returns JSON on screen state |
 
-**Multiple stations**
+The button on the box still works normally (depending on the settings in the webapp, see above), as does the digital button in the webapp (current state may not be presented properly). These also update the JSON return.
+
+*This is still in the development phase, so the code may be somewhat unstable. It is functional, but more extensive testing is still required. Moreover, this only works when the RevampedDepartures app is running, as the changes are made in there. Not in the MatrixBox core code*
+
+## Future Preperation: Multiple stations
 
 I added a third "view type", which in the future should be able to have up to 5 stations prepared, with the button being able to switch between them. This is mostly out of personal interest, as I live in a place where I use different transport modes (from different stops) during weekdays vs the weekend. The UI is prepared for that, but the logic is not implemented yet.
 
-*If you'd like to try out my changes and found any bugs or things looking not like they should, shoot me a message!*
+---
 
-> DISCLAIMER: This is an unofficial fork of MatrixBox!
+If you'd like to try out my changes and found any bugs or things not looking or working like they should, shoot me a message!
+
+> DISCLAIMER: This is an unofficial edit of MatrixBox, made under the OpenSource license. See also the license in the top directory.
