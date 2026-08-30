@@ -494,9 +494,13 @@ def huvudsidan(request):
                     varinit.settings["clocktime"] = 0
                 else:
                     # Returning to the realistic SL Classic default starts at 3
-                    # departures and Dynamic time display.
+                    # departures and Dynamic time display. Classic uses the same
+                    # underlying disruption/message interval setting as DLR, so
+                    # restore the normal 60-second disruption cadence here.
                     varinit.settings["maxdest"] = 3
                     varinit.settings["clocktime"] = 0
+                    varinit.settings["dlr_scroll_delay"] = 60
+                    varinit.shared["disruption_timer"] = time.monotonic()
                 if mode != old_mode:
                     # The HTTP callback must not swap TileGrids while the renderer
                     # is using them. The normal app/emulator loop consumes this flag.
@@ -514,6 +518,8 @@ def huvudsidan(request):
         elif mode == "disruptions":
             varinit.settings["custom_scroll_show"] = 0
             varinit.settings["show_msgs"] = 1
+            # Start the user-configured disruption interval from this selection.
+            varinit.shared["disruption_timer"] = time.monotonic()
         else:
             varinit.settings["custom_scroll_show"] = 0
             varinit.settings["show_msgs"] = 0
@@ -557,6 +563,8 @@ def huvudsidan(request):
         except:
             delay = 15
         varinit.settings["dlr_scroll_delay"] = max(1, min(300, delay))
+        if int(varinit.settings.get("show_msgs", 0)):
+            varinit.shared["disruption_timer"] = time.monotonic()
         if int(varinit.settings.get("listmode", 0)) == 2:
             functions.refresh_dlr_message_settings_now()
         return (200, {}, "")

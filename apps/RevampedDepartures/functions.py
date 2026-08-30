@@ -1052,12 +1052,14 @@ def scroll_mode():
                     else: varinit.scrollsum = render_departure_scroll()
                 except: varinit.scrollsum = render_departure_scroll()
             
-            elif time.monotonic() > varinit.deviations_timer + (varinit.deviations_delay * 60) \
+            elif time.monotonic() > _disruption_timer() + _scroll_delay_seconds() \
                 and int(varinit.settings["show_msgs"]) and varinit.shared["nightcount"] < 2 \
                 and varinit.settings["stations"]["1"]["operator"] in ["sl","vt"]:
+                _disruption_now = time.monotonic()
                 try: varinit.scrollsum = renderstring(reformat_data([["1", get_deviations(),"***","",""]]), large=True, _cls=bottom)
                 except: varinit.scrollsum = renderstring(reformat_data([["1", " ","***","",""]]), large=True, _cls=bottom)
-                varinit.deviations_timer = time.monotonic()
+                _mark_disruption_cycle(_disruption_now)
+                varinit.deviations_timer = _disruption_now
                 varinit.active_message = True
             else: varinit.scrollsum = render_departure_scroll()
             rnd = random.randint(0, 10)
@@ -1189,14 +1191,34 @@ def refresh_dlr_settings_now():
 
 
 
-def _dlr_scroll_delay_seconds():
-    """Return the configured DLR lower-half dwell time in seconds."""
+def _scroll_delay_seconds():
+    """Return the shared Scroll Text delay in seconds.
+
+    DLR uses it as the lower-half dwell. When Disruptions is selected, both
+    Classic and DLR also use it as the minimum interval between disruption
+    cycles. The legacy setting key is kept for settings-file compatibility.
+    """
     try:
         delay = int(varinit.settings.get("dlr_scroll_delay", 15))
     except:
         delay = 15
-    # Keep accidental web/settings values sane without making the UI restrictive.
     return max(1, min(300, delay))
+
+def _dlr_scroll_delay_seconds():
+    """Backward-compatible name used by the DLR animation."""
+    return _scroll_delay_seconds()
+
+def _disruption_timer():
+    """Independent disruption-cycle timer, unaffected by ordinary scroll resets."""
+    try:
+        return float(varinit.shared.get("disruption_timer", 0))
+    except:
+        return 0
+
+def _mark_disruption_cycle(now=None):
+    if now is None:
+        now = time.monotonic()
+    varinit.shared["disruption_timer"] = now
 
 def reset_dlr_message_cycle():
     """Reset the DLR lower-half message cycle to its configured dwell."""
@@ -1254,16 +1276,17 @@ def _dlr_next_message():
 
     if (varinit.shared.get("nightcount", 0) < 2
             and _operator in ("sl", "vt")
-            and now > varinit.deviations_timer + (varinit.deviations_delay * 60)):
+            and now > _disruption_timer() + _scroll_delay_seconds()):
         try:
             msg = str(get_deviations()).strip()
+            _mark_disruption_cycle(now)
             varinit.deviations_timer = now
             if msg:
                 return msg
         except Exception as e:
             print("DLR disruption message error:", repr(e))
-            # Match Classic behavior: even a failed fetch should not hammer the
-            # endpoint on every animation frame.
+            # A failed fetch starts a new configured delay before retrying.
+            _mark_disruption_cycle(now)
             varinit.deviations_timer = now
 
     return ""
@@ -1315,9 +1338,11 @@ def dlr_animation_tick():
         state["last_step"] = 0
         return True
 
-    # Around 30 fps is plenty for a 16-pixel vertical transition and keeps the
-    # physical MatrixBOX responsive to its normal networking/web work.
-    if now < float(state.get("last_step", 0)) + 0.03:
+    # Keep the vertical transition at ~30 fps, but scroll DLR text at ~2x that
+    # rate. On the physical MatrixBOX the old shared 0.03 s cadence made the
+    # horizontal ticker appear about half as fast as SL Classic.
+    _step_delay = 0.015 if phase == "scroll_message" else 0.03
+    if now < float(state.get("last_step", 0)) + _step_delay:
         return False
     state["last_step"] = now
 

@@ -152,7 +152,7 @@ PAGE_TPL = """<!DOCTYPE html>
 {DNS_SECTION}
 </details></div>
 <button type="button" class="btn btn-full" data-u="/?save=true">&#128190; {T_SAVE}</button>
-<div style="text-align:center;margin-top:14px"><small>For support, visit <a href="http://t-skylt.se">T-Skylt.se</a></small></div>
+<div style="text-align:center;margin-top:14px"><small>For support, visit <a href="https://shop.t-skylt.se/">T-Skylt.se</a><br>Unofficial app by B.WW. See <a href="https://github.com/walsariewolffbob/matrixbox">GitHub</a></small></div>
 <div id="opsdata" style="display:none">{OPS_JSON}</div>
 <div id="stndata" style="display:none">{STN_JSON}</div>
 <script>
@@ -160,7 +160,7 @@ function _ck(){var d=new Date(),h=d.getHours(),m=d.getMinutes();document.getElem
 var OPS=JSON.parse(document.getElementById('opsdata').textContent);var STN=JSON.parse(document.getElementById('stndata').textContent);
 function toggleDropdown(e){e.stopPropagation();document.getElementById('opdd').classList.toggle('open');}
 document.addEventListener('click',function(e){var dd=document.getElementById('opdd');if(dd&&!dd.contains(e.target))dd.classList.remove('open');});
-function pickScr(n){fetch('/?screen='+n);var d=STN[n];if(!d)return;document.querySelectorAll('.scr-btn').forEach(function(b){b.classList.toggle('act',b.textContent==String(n));});var co=d.co,op=d.op.toLowerCase();var el=document.querySelector('.dd-grid img[data-c="'+co+'"]');var f=el?el.outerHTML.replace(/dd-sel/g,'')+' ':'';var nm=d.op?d.op.toUpperCase():'OPERATOR';var ops=OPS[co]||[];for(var i=0;i<ops.length;i++){if(ops[i][0]===op){nm=ops[i][1];break;}}document.getElementById('opbtn').innerHTML=f+nm+' &#9660;';document.getElementById('sstring').placeholder=d.ms||'';var cb={METRO:d.M,BUS:d.B,TRAIN:d.T,TRAM:d.R,SHIP:d.S,r:d.r,g:d.g,b:d.b};for(var k in cb){var e=document.getElementById(k);if(e)e.checked=!!cb[k];}var sl=document.getElementById('slsection');if(sl)sl.style.display=op==='sl'?'':'none';var nb=document.getElementById('night_buses');if(nb)nb.checked=!!d.bo;var of2=document.getElementById('offset');if(of2)of2.value=d.of;var di=document.getElementById('direction');if(di)di.value=d.di;}
+function pickScr(n){fetch('/?screen='+n);var d=STN[n];if(!d)return;document.querySelectorAll('.scr-btn').forEach(function(b){b.classList.toggle('act',b.textContent==String(n));});var co=d.co,op=d.op.toLowerCase();var el=document.querySelector('.dd-grid img[data-c="'+co+'"]');var f=el?el.outerHTML.replace(/dd-sel/g,'')+' ':'';var nm=d.op?d.op.toUpperCase():'OPERATOR';var ops=OPS[co]||[];for(var i=0;i<ops.length;i++){if(ops[i][0]===op){nm=ops[i][1];break;}}document.getElementById('opbtn').innerHTML=f+nm+' &#9660;';document.getElementById('sstring').placeholder=d.ms||'';var cb={METRO:d.M,BUS:d.B,TRAIN:d.T,TRAM:d.R,SHIP:d.S,r:d.r,g:d.g,b:d.b};for(var k in cb){var e=document.getElementById(k);if(e)e.checked=!!cb[k];}var sl=document.getElementById('slsection');if(sl)sl.style.display=op==='sl'?'':'none';var nb=document.getElementById('night_buses');if(nb)nb.checked=!!d.bo;var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=d.B?'':'none';var of2=document.getElementById('offset');if(of2)of2.value=d.of;var di=document.getElementById('direction');if(di)di.value=d.di;}
 function pickC(c){var d=document.getElementById('ddops');d.innerHTML='';var ops=OPS[c]||[];for(var i=0;i<ops.length;i++){var a=document.createElement('a');a.href='#';a.textContent=ops[i][1];(function(cc,code,name){a.onclick=function(e){e.preventDefault();chCO(cc,code,name);return false;};})(c,ops[i][0],ops[i][1]);d.appendChild(a);}document.querySelectorAll('.dd-grid img').forEach(function(im){im.classList.toggle('dd-sel',im.dataset.c===c);});}
 function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.querySelector('.dd-grid img[data-c="'+c+'"');var f='';if(el)f=el.outerHTML.replace(/dd-sel/g,'')+' ';document.getElementById('opbtn').innerHTML=f+n+' &#9660;';document.getElementById('opbtn').style.animation='';document.getElementById('sstring').style.animation='guide-pulse 2.5s ease-in-out infinite';var sl=document.getElementById('slsection');if(sl)sl.style.display=o==='sl'?'':'none';document.getElementById('opdd').classList.remove('open');}
 function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
@@ -170,7 +170,8 @@ function setFont(v,el){fetch('/?font_size='+v);var bs=el.parentNode.querySelecto
 function setColor(v,el){fetch('/?color='+v);el.parentNode.querySelectorAll('.color-swatch-btn').forEach(function(b){b.classList.remove('active');});el.classList.add('active');}
 function updateDlrScrollControls(){
 var lm=document.getElementById('listmode'),mode=lm?String(lm.value):'',classic=mode==='0',dlr=mode==='2',supported=classic||dlr;
-var seg=document.getElementById('dlr-scroll-mode'),active=seg?seg.querySelector('button.on'):null,isCustom=!!(active&&active.textContent==='Custom');
+var seg=document.getElementById('dlr-scroll-mode'),active=seg?seg.querySelector('button.on'):null,isCustom=!!(active&&active.textContent==='Custom'),isDisruptions=!!(active&&active.textContent==='Disruptions');
+var delayEnabled=isDisruptions||(dlr&&isCustom);
 var tr=document.getElementById('custom-scroll-text-row'),ti=document.getElementById('custom_scroll_text');
 var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');
 var pr=document.getElementById('custom-scroll-position-row'),pi=document.getElementById('custom_scroll_position');
@@ -178,10 +179,10 @@ var sr=document.getElementById('custom-scroll-show-row');
 if(seg)seg.parentNode.style.display=supported?'':'none';
 if(sr)sr.style.display='none';
 if(tr)tr.style.opacity=(!supported||isCustom)?'1':'.35';
-if(dr){dr.style.display=dlr?'':'none';dr.style.opacity=isCustom?'1':'.35';}
+if(dr){dr.style.display=dlr?'':'none';dr.style.opacity=delayEnabled?'1':'.35';}
 if(pr){pr.style.display=classic?'':'none';pr.style.opacity=isCustom?'1':'.35';}
 if(ti)ti.disabled=supported&&!isCustom;
-if(di)di.disabled=dlr&&!isCustom;
+if(di)di.disabled=supported&&!delayEnabled;
 if(pi)pi.disabled=classic&&!isCustom;
 }
 function setDlrScrollMode(v,el){
@@ -194,7 +195,8 @@ el.addEventListener(el.dataset.e||'click',function(ev){
 var u=el.dataset.u;
 if(!u){var v=ev.target.value.replace(/#/g,'%23');if(el.dataset.enc)v=encodeURIComponent(v);u='/?'+el.dataset.p+'='+v;}
 fetch(u,{method:'GET'});
-if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';}else{if(ct)ct.value='0';}updateDlrScrollControls();}
+if(el.id==='BUS'){var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=ev.target.checked?'':'none';}
+if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';}else{if(ct)ct.value='0';}updateDlrScrollControls();}
 });});
 updateDlrScrollControls();
 </script>
@@ -340,7 +342,7 @@ def html():
     maxdest_disabled = " disabled" if _view_mode in (1, 2) else ""
 
     # metro section
-    metro_html = _chk("METRO", stn["METRO"], "/?type=metro", T["subway"])
+    metro_html = _chk("METRO", stn["METRO"], "/?type=metro", "Metro")
 
 
         
@@ -350,7 +352,8 @@ def html():
     gc = " checked" if int(stn["green"]) else ""
     bc = " checked" if int(stn["blue"]) else ""
     sl_disp = "" if op_code == "SL" else "display:none;"
-    night_bus_html = _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"])
+    _night_bus_show = "" if int(stn["BUS"]) else "display:none;"
+    night_bus_html = '<div id="night-buses-row" style="' + _night_bus_show + '">' + _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"]) + '</div>'
     devs_html = _chk("show_msgs", s["show_msgs"], "/?show_msgs=1", T["t_info"])
     _devs_show = "display:none;"
     devs_html = '<div id="disruption-msg-section" style="' + _devs_show + '"><div style="border-top:1px solid var(--border);margin:0"></div>' + devs_html + '</div>' 
@@ -437,6 +440,10 @@ def html():
     _scroll_content = "custom" if int(s.get("custom_scroll_show", 0)) else ("disruptions" if int(s.get("show_msgs", 0)) else "none")
     _scroll_custom_disabled = "" if _scroll_content == "custom" else " disabled"
     _scroll_custom_opacity = "1" if _scroll_content == "custom" else ".35"
+    _view_mode_now = int(s.get("listmode", 0))
+    _scroll_delay_enabled = (_scroll_content == "disruptions" or (_view_mode_now == 2 and _scroll_content == "custom"))
+    _scroll_delay_disabled = "" if _scroll_delay_enabled else " disabled"
+    _scroll_delay_opacity = "1" if _scroll_delay_enabled else ".35"
     custom_scroll_html = ''.join([
         '<div id="custom-scroll-section" style="', _cs_show, '">',
         '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
@@ -458,13 +465,13 @@ def html():
         (_scroll_custom_disabled if int(s.get("listmode", 0)) in (0, 2) else ""), '></div>',
 
         '<div style="border-top:1px solid var(--border);margin:10px 0 0"></div>',
-        '<div id="dlr-scroll-delay-row" class="toggle-row" style="border-bottom:none;', ("" if int(s.get("listmode", 0)) == 2 else "display:none;"), ';opacity:', (_scroll_custom_opacity if int(s.get("listmode", 0)) in (0, 2) else "1"), '">',
-        '<label for="dlr_scroll_delay" class="toggle-label">Scroll delay</label>',
+        '<div id="dlr-scroll-delay-row" class="toggle-row" style="border-bottom:none;', ("" if int(s.get("listmode", 0)) == 2 else "display:none;"), ';opacity:', _scroll_delay_opacity, '">',
+        '<label for="dlr_scroll_delay" class="toggle-label">Message interval</label>',
         '<div style="display:flex;align-items:center;gap:7px"><input type="number" id="dlr_scroll_delay" class="form-control" min="1" max="300" step="1" value="', str(s.get("dlr_scroll_delay", 15)), '" data-p="dlr_scroll_delay" data-e="change" style="width:82px"',
-        (_scroll_custom_disabled if int(s.get("listmode", 0)) in (0, 2) else ""), '><span style="color:var(--muted)">sec</span></div></div>',
+        _scroll_delay_disabled, '><span style="color:var(--muted)">sec</span></div></div>',
 
         # Classic-only placement and master toggle remain untouched.
-        '<div style="border-top:1px solid var(--border);margin:0"></div>',
+        '<div id="custom-scroll-position-separator" style="border-top:1px solid var(--border);margin:0;', _cs_pos_show, '"></div>',
         '<div id="custom-scroll-position-row" class="toggle-row" style="border-bottom:none;', _cs_pos_show, ';opacity:', (_scroll_custom_opacity if int(s.get("listmode", 0)) == 0 else "1"), '"><label for="custom_scroll_position" class="toggle-label">Position</label>',
         '<select id="custom_scroll_position" name="custom_scroll_position" class="form-control" ',
         'style="width:auto;min-width:165px;margin-left:12px;display:inline-block" data-p="custom_scroll_position" data-e="change"',
@@ -537,6 +544,7 @@ def html():
         + _opt("right", s.get("clock_row_align", "left"), "Right")
         + '</select></td></tr>'
         + '</table></div>'
+        + '<div id="clock-list-color-separator" style="border-top:1px solid var(--border);margin:10px 0;' + ("" if int(s.get("listmode", 0)) == 1 else "display:none;") + '"></div>'
         + '<table><tr><td><b>Clock: color</b></td><td><select id="clock_row_color" class="form-control" style="width:130px;display:inline" data-p="clock_row_color" data-e="change">'
         + _opt("white", s.get("clock_row_color", "white"), "White")
         + _opt("yellow", s.get("clock_row_color", "white"), "Yellow / amber")
@@ -596,7 +604,7 @@ def html():
         "LED_OFF_CLS": led_off_cls,
         "SIG_BARS": sig_bars,
         "IP_DISPLAY": ip,
-        "T_CONNECTIONS": T.get("connections", "Connections"),
+        "T_CONNECTIONS": "Connections & Screen",
         "T_WIFI_LABEL": T["network"],
         "SSID_OPTIONS": ssid_opt,
         "NET_DIS": net_dis,
