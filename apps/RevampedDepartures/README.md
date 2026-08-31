@@ -17,7 +17,7 @@ In Stockholm, if a departure is more than 30mins away, it is usually shown as a 
 As I only really run the departures app, I don't really feel like I always need the long-press exit function. The odd time I run lastfm, I can use the webapp.
 Therefore, I added the ability to choose its behaviour in the web-app. Both the short and long-press can be programmed.
 
-** Highlight night buses **
+**Highlight night buses**
 
 Mostly useful for the DLR lay-out. When active it highlights night buses in red. There is also the option to only do this when both "day traffic" and night buses are displayed on the screen.'
 The reason for the function is mostly that DLR-mode can make it unclear when night traffic starts because of the 1-2-3 rather than line numbers.
