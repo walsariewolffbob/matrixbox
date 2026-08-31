@@ -161,9 +161,9 @@ function _ck(){var d=new Date(),h=d.getHours(),m=d.getMinutes();document.getElem
 var OPS=JSON.parse(document.getElementById('opsdata').textContent);var STN=JSON.parse(document.getElementById('stndata').textContent);
 function toggleDropdown(e){e.stopPropagation();document.getElementById('opdd').classList.toggle('open');}
 document.addEventListener('click',function(e){var dd=document.getElementById('opdd');if(dd&&!dd.contains(e.target))dd.classList.remove('open');});
-function pickScr(n){fetch('/?screen='+n);var d=STN[n];if(!d)return;document.querySelectorAll('.scr-btn').forEach(function(b){b.classList.toggle('act',b.textContent==String(n));});var co=d.co,op=d.op.toLowerCase();var el=document.querySelector('.dd-grid img[data-c="'+co+'"]');var f=el?el.outerHTML.replace(/dd-sel/g,'')+' ':'';var nm=d.op?d.op.toUpperCase():'OPERATOR';var ops=OPS[co]||[];for(var i=0;i<ops.length;i++){if(ops[i][0]===op){nm=ops[i][1];break;}}document.getElementById('opbtn').innerHTML=f+nm+' &#9660;';document.getElementById('sstring').placeholder=d.ms||'';var cb={METRO:d.M,BUS:d.B,TRAIN:d.T,TRAM:d.R,SHIP:d.S,r:d.r,g:d.g,b:d.b};for(var k in cb){var e=document.getElementById(k);if(e)e.checked=!!cb[k];}var sl=document.getElementById('slsection');if(sl)sl.style.display=op==='sl'?'':'none';var nb=document.getElementById('night_buses');if(nb)nb.checked=!!d.bo;var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=d.B?'':'none';var of2=document.getElementById('offset');if(of2)of2.value=d.of;var di=document.getElementById('direction');if(di)di.value=d.di;}
+function pickScr(n){fetch('/?screen='+n);var d=STN[n];if(!d)return;document.querySelectorAll('.scr-btn').forEach(function(b){b.classList.toggle('act',b.textContent==String(n));});var co=d.co,op=d.op.toLowerCase();var el=document.querySelector('.dd-grid img[data-c="'+co+'"]');var f=el?el.outerHTML.replace(/dd-sel/g,'')+' ':'';var nm=d.op?d.op.toUpperCase():'OPERATOR';var ops=OPS[co]||[];for(var i=0;i<ops.length;i++){if(ops[i][0]===op){nm=ops[i][1];break;}}document.getElementById('opbtn').innerHTML=f+nm+' &#9660;';document.getElementById('sstring').placeholder=d.ms||'';var cb={METRO:d.M,BUS:d.B,TRAIN:d.T,TRAM:d.R,SHIP:d.S,r:d.r,g:d.g,b:d.b};for(var k in cb){var e=document.getElementById(k);if(e)e.checked=!!cb[k];}var sl=document.getElementById('slsection');if(sl)sl.style.display=op==='sl'?'':'none';var nb=document.getElementById('night_buses');if(nb)nb.checked=!!d.bo;var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=(String(d.op).toLowerCase()==='sl'&&d.B)?'':'none';var of2=document.getElementById('offset');if(of2)of2.value=d.of;var di=document.getElementById('direction');if(di)di.value=d.di;}
 function pickC(c){var d=document.getElementById('ddops');d.innerHTML='';var ops=OPS[c]||[];for(var i=0;i<ops.length;i++){var a=document.createElement('a');a.href='#';a.textContent=ops[i][1];(function(cc,code,name){a.onclick=function(e){e.preventDefault();chCO(cc,code,name);return false;};})(c,ops[i][0],ops[i][1]);d.appendChild(a);}document.querySelectorAll('.dd-grid img').forEach(function(im){im.classList.toggle('dd-sel',im.dataset.c===c);});}
-function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.querySelector('.dd-grid img[data-c="'+c+'"');var f='';if(el)f=el.outerHTML.replace(/dd-sel/g,'')+' ';document.getElementById('opbtn').innerHTML=f+n+' &#9660;';document.getElementById('opbtn').style.animation='';document.getElementById('sstring').style.animation='guide-pulse 2.5s ease-in-out infinite';var sl=document.getElementById('slsection');if(sl)sl.style.display=o==='sl'?'':'none';document.getElementById('opdd').classList.remove('open');}
+function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.querySelector('.dd-grid img[data-c="'+c+'"');var f='';if(el)f=el.outerHTML.replace(/dd-sel/g,'')+' ';document.getElementById('opbtn').innerHTML=f+n+' &#9660;';document.getElementById('opbtn').style.animation='';document.getElementById('sstring').style.animation='guide-pulse 2.5s ease-in-out infinite';var sl=document.getElementById('slsection');if(sl)sl.style.display=o==='sl'?'':'none';var nbr=document.getElementById('night-buses-row'),bus=document.getElementById('BUS');if(nbr)nbr.style.display=(o==='sl'&&bus&&bus.checked)?'':'none';document.getElementById('opdd').classList.remove('open');}
 function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
 function doScan(){fetch('/checknet').then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('ssid');sel.innerHTML=h;sel.disabled=false;document.getElementById('password').disabled=false;document.getElementById('connect_wifi').disabled=false;}).catch(function(){});}
 
@@ -201,6 +201,16 @@ fetch('/?list_line_display='+encodeURIComponent(v));
 var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
 el.classList.add('on');
 }
+function setNightBusHighlight(v,el){
+fetch('/?night_bus_highlight='+encodeURIComponent(v));
+var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+el.classList.add('on');
+}
+function setNightBusHighlightUI(v){
+var seg=document.getElementById('night-bus-highlight');if(!seg)return;
+seg.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+var b=seg.querySelector('button[data-v="'+String(v)+'"]');if(b)b.classList.add('on');
+}
 function applyButtonViewLock(v){
 var lm=document.getElementById('listmode');
 if(lm){
@@ -232,8 +242,8 @@ el.addEventListener(el.dataset.e||'click',function(ev){
 var u=el.dataset.u;
 if(!u){var v=ev.target.value.replace(/#/g,'%23');if(el.dataset.enc)v=encodeURIComponent(v);u='/?'+el.dataset.p+'='+v;}
 fetch(u,{method:'GET'});
-if(el.id==='BUS'){var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=ev.target.checked?'':'none';}
-if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime'),lds=document.getElementById('list-line-display');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="1"]');if(b)b.classList.add('on');}}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="0"]');if(b)b.classList.add('on');}}else{if(ct)ct.value='0';}updateDlrScrollControls();}
+if(el.id==='BUS'){var nbr=document.getElementById('night-buses-row'),sl=document.getElementById('slsection');if(nbr)nbr.style.display=(ev.target.checked&&sl&&sl.style.display!=='none')?'':'none';}
+if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime'),lds=document.getElementById('list-line-display');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';setNightBusHighlightUI(0);if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="1"]');if(b)b.classList.add('on');}}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';setNightBusHighlightUI(1);if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="0"]');if(b)b.classList.add('on');}}else{if(ct)ct.value='0';}updateDlrScrollControls();}
 });});
 updateDlrScrollControls();
 applyButtonViewLock({BUTTON_MODE_VALUE});
@@ -357,7 +367,7 @@ def html():
         '<span class="seg" id="station-selection-mode" style="width:100%">',
         '<button type="button" onclick="setStationSelectionMode(0,this)" class="', ("on" if _station_selection_mode == 0 else ""), '">Single</button>',
         '<button type="button" onclick="setStationSelectionMode(1,this)" class="', ("on" if _station_selection_mode == 1 else ""), '">Combined list</button>',
-        '<button type="button" onclick="setStationSelectionMode(2,this)" class="', ("on" if _station_selection_mode == 2 else ""), '">Multiple</button>',
+        '<button type="button" disabled style="opacity:.35;cursor:not-allowed;pointer-events:none;" title="Not available yet">Multiple</button>',
         '</span></div>'
     ])
 
@@ -400,13 +410,23 @@ def html():
 
         
 
-    # SL line color filter chips + night-bus toggle, grouped in one show/hide block
+    # SL-specific controls. Keep the original Night buses only filter in the
+    # traffic-type card, while red highlighting lives in the List/DLR colour submenu.
     rc = " checked" if int(stn["red"]) else ""
     gc = " checked" if int(stn["green"]) else ""
     bc = " checked" if int(stn["blue"]) else ""
     sl_disp = "" if op_code == "SL" else "display:none;"
-    _night_bus_show = "" if int(stn["BUS"]) else "display:none;"
-    night_bus_html = '<div id="night-buses-row" style="' + _night_bus_show + '">' + _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"]) + '</div>'
+    _night_bus_show = "" if op_code == "SL" and int(stn["BUS"]) else "display:none;"
+    night_bus_filter_html = '<div id="night-buses-row" style="' + _night_bus_show + '">' + _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"]) + '</div>'
+    _night_bus_highlight_mode = int(s.get("night_bus_highlight", 0))
+    night_bus_highlight_html = ''.join([
+        '<div style="margin-top:10px"><label class="control-label" style="margin-bottom:6px">', T["highlight_nightbuses"], '</label>',
+        '<span class="seg" id="night-bus-highlight" style="width:100%">',
+        '<button type="button" data-v="0" onclick="setNightBusHighlight(0,this)" class="', ("on" if _night_bus_highlight_mode == 0 else ""), '">Off</button>',
+        '<button type="button" data-v="2" onclick="setNightBusHighlight(2,this)" class="', ("on" if _night_bus_highlight_mode == 2 else ""), '">On</button>',
+        '<button type="button" data-v="1" onclick="setNightBusHighlight(1,this)" class="', ("on" if _night_bus_highlight_mode == 1 else ""), '">Mixed Traffic</button>',
+        '</span></div>'
+    ])
     devs_html = _chk("show_msgs", s["show_msgs"], "/?show_msgs=1", T["t_info"])
     _devs_show = "display:none;"
     devs_html = '<div id="disruption-msg-section" style="' + _devs_show + '"><div style="border-top:1px solid var(--border);margin:0"></div>' + devs_html + '</div>' 
@@ -419,7 +439,7 @@ def html():
         '<label class="line-chip" for="g"><span class="dot" style="background:#16a34a"></span>Green</label>',
         '<input type="checkbox" class="btn-check" id="b" name="blue" data-u="/?line=blue"', bc, '>',
         '<label class="line-chip" for="b"><span class="dot" style="background:#2563eb"></span>Blue</label>',
-        '</div>', night_bus_html, '</div>',])
+        '</div>', night_bus_filter_html, '</div>',])
 
     
     disruptions = devs_html if op_code in ["VT"] else ""
@@ -680,7 +700,7 @@ def html():
         '<div id="view-colour-section" style="', _view_colour_show, '">',
         '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
         '<details><summary>🎨 Line / Minute colour</summary>',
-        line_display_html, listcolor_html, listcolor_time_html,
+        line_display_html, listcolor_html, listcolor_time_html, night_bus_highlight_html,
         '</details></div>'
     ])
 

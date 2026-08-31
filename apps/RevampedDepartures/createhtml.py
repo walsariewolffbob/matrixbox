@@ -582,6 +582,7 @@ def huvudsidan(request):
                     varinit.settings["maxdest"] = 3
                     varinit.settings["listcolor"] = 0
                     varinit.settings["listcolor_time"] = 0
+                    varinit.settings["night_bus_highlight"] = 1
                     varinit.settings["list_line_display"] = 0
                     varinit.settings["clocktime"] = 2
                     # DLR message lane benchmark: show lower departures for 15s
@@ -603,6 +604,7 @@ def huvudsidan(request):
                         varinit.settings["maxdest"] = 4
                         varinit.settings["listcolor"] = 1
                         varinit.settings["listcolor_time"] = 1
+                        varinit.settings["night_bus_highlight"] = 0
                         varinit.settings["list_line_display"] = 1
                         varinit.settings["clocktime"] = 0
                 else:
@@ -715,6 +717,33 @@ def huvudsidan(request):
         varinit.settings["listcolor_time"] = 1 - int(varinit.settings.get("listcolor_time", 0))
         if int(varinit.settings.get("listmode", 0)) in (1, 2):
             functions.refresh_clock_settings_now()
+        else:
+            functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "night_bus_highlight" in request.params:
+        # Three-way night-bus highlighting:
+        #   0 = Off
+        #   1 = At start/end of traffic (mixed regular/night departures only)
+        #   2 = Always
+        try:
+            _night_mode = int(request.params["night_bus_highlight"])
+        except:
+            _night_mode = int(varinit.settings.get("night_bus_highlight", 0))
+        if _night_mode not in (0, 1, 2):
+            _night_mode = 0
+        varinit.settings["night_bus_highlight"] = _night_mode
+
+        # Pulse the active view immediately so the new highlight state is
+        # visible without waiting for the normal departures refresh interval.
+        varinit.use_cached_data = True
+        varinit.shared["scroll_timer"] = 0
+        varinit.shared["loop_counter"] = 0
+
+        _mode = int(varinit.settings.get("listmode", 0))
+        if _mode == 2:
+            varinit.shared["force_view_rebuild"] = 1
+        elif _mode == 1:
+            functions.list_mode()
         else:
             functions.switch(_screen=False)
         return (200, {}, "")
