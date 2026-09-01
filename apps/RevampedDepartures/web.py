@@ -39,6 +39,12 @@ def _chk(name, val, url, label):
             '<label class="switch"><input type="checkbox" id="' + name + '" data-u="' + url + '"' + c + '><span class="slider"></span></label></div>')
 
 
+def _traffic_chip(name, val, url, label):
+    c = ' checked' if int(val) else ''
+    return ('<input type="checkbox" class="btn-check traffic-check" id="' + name + '" data-u="' + url + '"' + c + '>'
+            '<label class="traffic-chip" for="' + name + '">' + label + '</label>')
+
+
 def _rssi(functions):
     try:
         ai = functions.wifi.radio.ap_info
@@ -105,15 +111,29 @@ PAGE_TPL = """<!DOCTYPE html>
 </div>
 </div>
 <div class="card">
-<div class="grp-title">{T_TRAFFIC_TYPES}</div>
-<div class="tt-grid">
+<div class="section-title">Departures</div>
+<label class="control-label" style="margin-bottom:6px">Traffic</label>
+<div class="traffic-chips">
 {METRO_SECTION}
-{BUS_SECTION}
 {TRAIN_CHK}
 {TRAM_SECTION}
+{BUS_SECTION}
 {SHIP_SECTION}
 </div>
+<div style="border-top:1px solid var(--border);margin:12px 0"></div>
+<div class="form-row">
+<div class="col">
+<label for="show_lines">Specific lines</label>
+<input type="text" id="show_lines" class="form-control" placeholder="{SHOW_LINES_VAL}" data-p="show_lines" data-e="blur">
+</div>
+<div class="col">{DIRECTION_SECTION}</div>
+</div>
 {SL_SECTION}
+<div style="border-top:1px solid var(--border);margin:12px 0"></div>
+<div class="form-row"><div class="col">
+<label for="offset">{T_HIDE_DEPARTURES}</label>
+<select id="offset" name="offset" class="form-control" data-p="offset" data-e="change">{OFFSET_OPTIONS}</select>
+</div></div>
 </div>
 <div class="card">
 <div class="grp">
@@ -121,11 +141,6 @@ PAGE_TPL = """<!DOCTYPE html>
 <label for="maxdest">{T_NO_DEPARTURES}</label>
 <select id="maxdest" name="maxdest" class="form-control" data-p="maxdest" data-e="change"{MAXDEST_DISABLED}>{MAXDEST_OPTIONS}</select>
 </div></div></div>
-<div class="grp">
-<div class="form-row"><div class="col">
-<label for="offset">{T_HIDE_DEPARTURES}</label>
-<select id="offset" name="offset" class="form-control" data-p="offset" data-e="change">{OFFSET_OPTIONS}</select>
-</div><div class="col">{DIRECTION_SECTION}</div></div></div>
 {SLEEP_CHK}
 </div>
 <div class="card">
@@ -142,7 +157,6 @@ PAGE_TPL = """<!DOCTYPE html>
 <table>
 <tr><td><b>{T_TONE}</b></td><td><div style="display:flex;gap:10px">{TONE_SWATCHES}</div></td></tr>
 <tr><td><b>{T_LINE_LENGTH}</b></td><td><input type="text" id="line_length" class="form-control" style="width:80px;display:inline" placeholder="{LINE_LENGTH_VAL}" data-p="line_length" data-e="blur"><br><small>{T_LINE_LENGTH_HELP}</small></td></tr>
-<tr><td><b>{T_SHOW_LINES}</b></td><td><input type="text" id="show_lines" class="form-control" style="width:160px;display:inline" placeholder="{SHOW_LINES_VAL}" data-p="show_lines" data-e="blur"></td></tr>
 <tr><td><b>Strip from destination</b></td><td><input type="text" id="strip_dest" class="form-control" style="width:160px;display:inline" placeholder="{STRIP_DEST_VAL}" data-p="strip_dest" data-e="blur" data-enc="1"></td></tr>
 <tr><td><b>{T_NO_MORE_DEP}</b></td><td><input type="text" id="no_more_departures" class="form-control" style="width:160px;display:inline" placeholder="{NO_MORE_DEP_VAL}" data-p="no_more_departures" data-e="blur" data-enc="1"></td></tr>
 <tr><td><b>{T_MINS}</b></td><td><input type="text" id="mins" class="form-control" style="width:160px;display:inline" placeholder="{MINS_VAL}" data-p="mins" data-e="blur" data-enc="1"></td></tr>
@@ -161,9 +175,9 @@ function _ck(){var d=new Date(),h=d.getHours(),m=d.getMinutes();document.getElem
 var OPS=JSON.parse(document.getElementById('opsdata').textContent);var STN=JSON.parse(document.getElementById('stndata').textContent);
 function toggleDropdown(e){e.stopPropagation();document.getElementById('opdd').classList.toggle('open');}
 document.addEventListener('click',function(e){var dd=document.getElementById('opdd');if(dd&&!dd.contains(e.target))dd.classList.remove('open');});
-function pickScr(n){fetch('/?screen='+n);var d=STN[n];if(!d)return;document.querySelectorAll('.scr-btn').forEach(function(b){b.classList.toggle('act',b.textContent==String(n));});var co=d.co,op=d.op.toLowerCase();var el=document.querySelector('.dd-grid img[data-c="'+co+'"]');var f=el?el.outerHTML.replace(/dd-sel/g,'')+' ':'';var nm=d.op?d.op.toUpperCase():'OPERATOR';var ops=OPS[co]||[];for(var i=0;i<ops.length;i++){if(ops[i][0]===op){nm=ops[i][1];break;}}document.getElementById('opbtn').innerHTML=f+nm+' &#9660;';document.getElementById('sstring').placeholder=d.ms||'';var cb={METRO:d.M,BUS:d.B,TRAIN:d.T,TRAM:d.R,SHIP:d.S,r:d.r,g:d.g,b:d.b};for(var k in cb){var e=document.getElementById(k);if(e)e.checked=!!cb[k];}var sl=document.getElementById('slsection');if(sl)sl.style.display=op==='sl'?'':'none';var nb=document.getElementById('night_buses');if(nb)nb.checked=!!d.bo;var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=(String(d.op).toLowerCase()==='sl'&&d.B)?'':'none';var of2=document.getElementById('offset');if(of2)of2.value=d.of;var di=document.getElementById('direction');if(di)di.value=d.di;}
+function pickScr(n){fetch('/?screen='+n);var d=STN[n];if(!d)return;document.querySelectorAll('.scr-btn').forEach(function(b){b.classList.toggle('act',b.textContent==String(n));});var co=d.co,op=d.op.toLowerCase();var el=document.querySelector('.dd-grid img[data-c="'+co+'"]');var f=el?el.outerHTML.replace(/dd-sel/g,'')+' ':'';var nm=d.op?d.op.toUpperCase():'OPERATOR';var ops=OPS[co]||[];for(var i=0;i<ops.length;i++){if(ops[i][0]===op){nm=ops[i][1];break;}}document.getElementById('opbtn').innerHTML=f+nm+' &#9660;';document.getElementById('sstring').placeholder=d.ms||'';var cb={METRO:d.M,BUS:d.B,TRAIN:d.T,TRAM:d.R,SHIP:d.S,r:d.r,g:d.g,b:d.b};for(var k in cb){var e=document.getElementById(k);if(e)e.checked=!!cb[k];}var sl=document.getElementById('slsection');if(sl)sl.style.display=op==='sl'?'':'none';var nb=document.getElementById('night_buses');if(nb)nb.checked=!!d.bo;var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=d.B?'':'none';var nbs=document.getElementById('night-buses-separator');if(nbs)nbs.style.display=d.B?'':'none';var mfr=document.getElementById('metro-filter-row');if(mfr)mfr.style.display=d.M?'':'none';var mfs=document.getElementById('metro-filter-separator');if(mfs)mfs.style.display=d.M?'':'none';var of2=document.getElementById('offset');if(of2)of2.value=d.of;var di=document.getElementById('direction');if(di)di.value=d.di;}
 function pickC(c){var d=document.getElementById('ddops');d.innerHTML='';var ops=OPS[c]||[];for(var i=0;i<ops.length;i++){var a=document.createElement('a');a.href='#';a.textContent=ops[i][1];(function(cc,code,name){a.onclick=function(e){e.preventDefault();chCO(cc,code,name);return false;};})(c,ops[i][0],ops[i][1]);d.appendChild(a);}document.querySelectorAll('.dd-grid img').forEach(function(im){im.classList.toggle('dd-sel',im.dataset.c===c);});}
-function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.querySelector('.dd-grid img[data-c="'+c+'"');var f='';if(el)f=el.outerHTML.replace(/dd-sel/g,'')+' ';document.getElementById('opbtn').innerHTML=f+n+' &#9660;';document.getElementById('opbtn').style.animation='';document.getElementById('sstring').style.animation='guide-pulse 2.5s ease-in-out infinite';var sl=document.getElementById('slsection');if(sl)sl.style.display=o==='sl'?'':'none';var nbr=document.getElementById('night-buses-row'),bus=document.getElementById('BUS');if(nbr)nbr.style.display=(o==='sl'&&bus&&bus.checked)?'':'none';document.getElementById('opdd').classList.remove('open');}
+function chCO(c,o,n){fetch('/?country='+c+'&operator='+o);var el=document.querySelector('.dd-grid img[data-c="'+c+'"');var f='';if(el)f=el.outerHTML.replace(/dd-sel/g,'')+' ';document.getElementById('opbtn').innerHTML=f+n+' &#9660;';document.getElementById('opbtn').style.animation='';document.getElementById('sstring').style.animation='guide-pulse 2.5s ease-in-out infinite';var sl=document.getElementById('slsection');if(sl)sl.style.display=o==='sl'?'':'none';document.getElementById('opdd').classList.remove('open');}
 function doSearch(){var s=document.getElementById('sstring').value;if(!s)return;var b=document.getElementById('searchbtn');b.disabled=true;b.innerHTML='<span class="spin"></span>';fetch('/search?sstring='+encodeURIComponent(s)).then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('newstation');sel.innerHTML=h;sel.disabled=false;sel.style.borderColor='#ff6060';sel.style.animation='guide-pulse 2.5s ease-in-out infinite';document.getElementById('sstring').style.animation='';b.disabled=false;b.textContent='{T_SEARCH}';}).catch(function(){b.disabled=false;b.textContent='{T_SEARCH}';});}
 function doScan(){fetch('/checknet').then(function(r){return r.text();}).then(function(h){var sel=document.getElementById('ssid');sel.innerHTML=h;sel.disabled=false;document.getElementById('password').disabled=false;document.getElementById('connect_wifi').disabled=false;}).catch(function(){});}
 
@@ -201,16 +215,6 @@ fetch('/?list_line_display='+encodeURIComponent(v));
 var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
 el.classList.add('on');
 }
-function setNightBusHighlight(v,el){
-fetch('/?night_bus_highlight='+encodeURIComponent(v));
-var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
-el.classList.add('on');
-}
-function setNightBusHighlightUI(v){
-var seg=document.getElementById('night-bus-highlight');if(!seg)return;
-seg.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
-var b=seg.querySelector('button[data-v="'+String(v)+'"]');if(b)b.classList.add('on');
-}
 function applyButtonViewLock(v){
 var lm=document.getElementById('listmode');
 if(lm){
@@ -242,8 +246,9 @@ el.addEventListener(el.dataset.e||'click',function(ev){
 var u=el.dataset.u;
 if(!u){var v=ev.target.value.replace(/#/g,'%23');if(el.dataset.enc)v=encodeURIComponent(v);u='/?'+el.dataset.p+'='+v;}
 fetch(u,{method:'GET'});
-if(el.id==='BUS'){var nbr=document.getElementById('night-buses-row'),sl=document.getElementById('slsection');if(nbr)nbr.style.display=(ev.target.checked&&sl&&sl.style.display!=='none')?'':'none';}
-if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime'),lds=document.getElementById('list-line-display');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';setNightBusHighlightUI(0);if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="1"]');if(b)b.classList.add('on');}}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';setNightBusHighlightUI(1);if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="0"]');if(b)b.classList.add('on');}}else{if(ct)ct.value='0';}updateDlrScrollControls();}
+if(el.id==='BUS'){var show=ev.target.checked;var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=show?'':'none';var nbs=document.getElementById('night-buses-separator');if(nbs)nbs.style.display=show?'':'none';}
+if(el.id==='METRO'){var show=ev.target.checked;var mfr=document.getElementById('metro-filter-row');if(mfr)mfr.style.display=show?'':'none';var mfs=document.getElementById('metro-filter-separator');if(mfs)mfs.style.display=show?'':'none';}
+if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime'),lds=document.getElementById('list-line-display');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="1"]');if(b)b.classList.add('on');}}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="0"]');if(b)b.classList.add('on');}}else{if(ct)ct.value='0';}updateDlrScrollControls();}
 });});
 updateDlrScrollControls();
 applyButtonViewLock({BUTTON_MODE_VALUE});
@@ -367,7 +372,7 @@ def html():
         '<span class="seg" id="station-selection-mode" style="width:100%">',
         '<button type="button" onclick="setStationSelectionMode(0,this)" class="', ("on" if _station_selection_mode == 0 else ""), '">Single</button>',
         '<button type="button" onclick="setStationSelectionMode(1,this)" class="', ("on" if _station_selection_mode == 1 else ""), '">Combined list</button>',
-        '<button type="button" disabled style="opacity:.35;cursor:not-allowed;pointer-events:none;" title="Not available yet">Multiple</button>',
+        '<button type="button" onclick="setStationSelectionMode(2,this)" class="', ("on" if _station_selection_mode == 2 else ""), '">Multiple</button>',
         '</span></div>'
     ])
 
@@ -405,33 +410,31 @@ def html():
     maxdest_disabled = " disabled" if _combined_station_mode or _view_mode in (1, 2) else ""
 
     # metro section
-    metro_html = _chk("METRO", stn["METRO"], "/?type=metro", "Metro")
+    metro_html = _traffic_chip('METRO', stn['METRO'], '/?type=metro', 'Metro')
 
 
         
 
-    # SL-specific controls. Keep the original Night buses only filter in the
-    # traffic-type card, while red highlighting lives in the List/DLR colour submenu.
+    # SL line color filter chips + night-bus toggle, grouped in one show/hide block
     rc = " checked" if int(stn["red"]) else ""
     gc = " checked" if int(stn["green"]) else ""
     bc = " checked" if int(stn["blue"]) else ""
     sl_disp = "" if op_code == "SL" else "display:none;"
-    _night_bus_show = "" if op_code == "SL" and int(stn["BUS"]) else "display:none;"
-    night_bus_filter_html = '<div id="night-buses-row" style="' + _night_bus_show + '">' + _chk("night_buses", stn["buses_option"], "/?buses_option=1", T["only_nightbuses"]) + '</div>'
-    _night_bus_highlight_mode = int(s.get("night_bus_highlight", 0))
-    night_bus_highlight_html = ''.join([
-        '<div style="margin-top:10px"><label class="control-label" style="margin-bottom:6px">', T["highlight_nightbuses"], '</label>',
-        '<span class="seg" id="night-bus-highlight" style="width:100%">',
-        '<button type="button" data-v="0" onclick="setNightBusHighlight(0,this)" class="', ("on" if _night_bus_highlight_mode == 0 else ""), '">Off</button>',
-        '<button type="button" data-v="2" onclick="setNightBusHighlight(2,this)" class="', ("on" if _night_bus_highlight_mode == 2 else ""), '">On</button>',
-        '<button type="button" data-v="1" onclick="setNightBusHighlight(1,this)" class="', ("on" if _night_bus_highlight_mode == 1 else ""), '">Mixed Traffic</button>',
-        '</span></div>'
+    _night_bus_show = "" if int(stn["BUS"]) else "display:none;"
+    night_bus_html = ''.join([
+        '<div id="night-buses-separator" style="border-top:1px solid var(--border);margin:12px 0;', _night_bus_show, '"></div>',
+        '<div id="night-buses-row" style="', _night_bus_show, '">',
+        _chk('night_buses', stn['buses_option'], '/?buses_option=1', T['only_nightbuses']),
+        '</div>'
     ])
     devs_html = _chk("show_msgs", s["show_msgs"], "/?show_msgs=1", T["t_info"])
     _devs_show = "display:none;"
     devs_html = '<div id="disruption-msg-section" style="' + _devs_show + '"><div style="border-top:1px solid var(--border);margin:0"></div>' + devs_html + '</div>' 
-    sl_section = ''.join(['<div id="slsection" style="', sl_disp, ';margin-top:10px">',
-        '<label class="control-label" style="margin-bottom:6px">Metro line filter</label>',
+    _metro_filter_show = '' if int(stn['METRO']) else 'display:none;'
+    sl_section = ''.join(['<div id="slsection" style="', sl_disp, '">',
+        '<div id="metro-filter-separator" style="border-top:1px solid var(--border);margin:12px 0;', _metro_filter_show, '"></div>',
+        '<div id="metro-filter-row" style="', _metro_filter_show, '">',
+        '<label class="control-label" style="margin-bottom:6px">Metro lines</label>',
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">',
         '<input type="checkbox" class="btn-check" id="r" name="red" data-u="/?line=red"', rc, '>',
         '<label class="line-chip" for="r"><span class="dot" style="background:#dc2626"></span>Red</label>',
@@ -439,7 +442,7 @@ def html():
         '<label class="line-chip" for="g"><span class="dot" style="background:#16a34a"></span>Green</label>',
         '<input type="checkbox" class="btn-check" id="b" name="blue" data-u="/?line=blue"', bc, '>',
         '<label class="line-chip" for="b"><span class="dot" style="background:#2563eb"></span>Blue</label>',
-        '</div>', night_bus_filter_html, '</div>',])
+        '</div></div>', night_bus_html, '</div>',])
 
     
     disruptions = devs_html if op_code in ["VT"] else ""
@@ -448,20 +451,20 @@ def html():
     # bus section
     bus_html = ""
     if op_code != "SJ":
-        bus_html = _chk("BUS", stn["BUS"], "/?type=bus", T["buses"])
+        bus_html = _traffic_chip('BUS', stn['BUS'], '/?type=bus', 'Busses')
 
     # train
-    train_html = _chk("TRAIN", stn["TRAIN"], "/?type=train", T["trains"])
+    train_html = _traffic_chip('TRAIN', stn['TRAIN'], '/?type=train', 'Trains')
 
     # tram
     tram_html = ""
     if op_code != "SJ":
-        tram_html = _chk("TRAM", stn["TRAM"], "/?type=tram", T["trams"])
+        tram_html = _traffic_chip('TRAM', stn['TRAM'], '/?type=tram', 'Light rail')
 
     # ship
     ship_html = ""
     if op_code != "SJ":
-        ship_html = _chk("SHIP", stn["SHIP"], "/?type=ship", T["ships"])
+        ship_html = _traffic_chip('SHIP', stn['SHIP'], '/?type=ship', 'Ferrries')
 
     # offset options
     _p = []
@@ -700,7 +703,7 @@ def html():
         '<div id="view-colour-section" style="', _view_colour_show, '">',
         '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
         '<details><summary>🎨 Line / Minute colour</summary>',
-        line_display_html, listcolor_html, listcolor_time_html, night_bus_highlight_html,
+        line_display_html, listcolor_html, listcolor_time_html,
         '</details></div>'
     ])
 

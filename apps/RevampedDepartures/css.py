@@ -78,6 +78,9 @@ details[open]>summary{margin-bottom:8px;color:var(--text)}
 .grp{margin-bottom:14px}
 .grp:last-child{margin-bottom:0}
 .grp-title{font-size:.65rem;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);margin-bottom:8px;font-weight:700}
+.traffic-chips{display:flex;gap:8px;flex-wrap:wrap}
+.traffic-chip{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 13px;border-radius:18px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.8rem;font-weight:600;transition:all .15s}
+.btn-check:checked+.traffic-chip{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:#fff}
 .tt-grid{display:grid;grid-template-columns:1fr 1fr;column-gap:16px}
 .tt-grid .toggle-label{text-transform:capitalize}
 a{color:var(--accent2);text-decoration:none}
