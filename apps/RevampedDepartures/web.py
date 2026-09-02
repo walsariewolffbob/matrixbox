@@ -62,7 +62,7 @@ def _sig_bars(rssi):
 PAGE_TPL = """<!DOCTYPE html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1" charset="UTF-8">
 <link href="data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAAA/SURBVDhPY2RgYPgPxGQDsAFAAOGRCBgZGREGgDikAJgeJiifbDDwBuAMRPQwwaVmGITBqAHUykwQLjmAgQEA3oYYFR16cP8AAAAASUVORK5CYII=" rel="icon" type="image/x-icon"/>
-<title>{TITLE}</title><style>{CSS}</style></head><body>
+<title>{TITLE}</title><style>{CSS}.advanced-table{border-collapse:collapse}.advanced-table td{border-bottom:1px solid var(--border)}.advanced-table tr:last-child td{border-bottom:1px solid var(--border)}.advanced-button-row{padding:10px 0;border-bottom:1px solid var(--border)}.advanced-toggle-row.toggle-row{border-bottom:1px solid var(--border)}.advanced-toggle-row.toggle-row:last-child{border-bottom:none}.advanced-scroll-label{margin:0;font-size:.85rem;color:var(--text);text-transform:none;letter-spacing:0;font-weight:500}</style></head><body>
 <nav class="navbar">
 <a class="nav-x" href="/exit" title="Exit" style="margin-left:0;margin-right:4px">&#8592;</a>
 <span class="nav-title">{HEADER}</span>
@@ -128,12 +128,9 @@ PAGE_TPL = """<!DOCTYPE html>
 </div>
 <div class="col">{DIRECTION_SECTION}</div>
 </div>
+<div class="toggle-row" style="border-bottom:none"><label for="offset" class="toggle-label">{T_HIDE_DEPARTURES}</label>
+<div style="display:flex;align-items:center;gap:7px"><input type="number" id="offset" name="offset" class="form-control" min="0" max="30" step="1" value="{OFFSET_VALUE}" data-p="offset" data-e="change" style="width:82px"><span style="color:var(--muted)">mins</span></div></div>
 {SL_SECTION}
-<div style="border-top:1px solid var(--border);margin:12px 0"></div>
-<div class="form-row"><div class="col">
-<label for="offset">{T_HIDE_DEPARTURES}</label>
-<select id="offset" name="offset" class="form-control" data-p="offset" data-e="change">{OFFSET_OPTIONS}</select>
-</div></div>
 </div>
 <div class="card">
 <div class="grp">
@@ -154,16 +151,20 @@ PAGE_TPL = """<!DOCTYPE html>
 <div class="card"><details>
 <summary>&#9881; {T_ADVANCED}</summary>
 {BUTTON_MODE_CHK}
-<table>
+<table class="advanced-table">
 <tr><td><b>{T_TONE}</b></td><td><div style="display:flex;gap:10px">{TONE_SWATCHES}</div></td></tr>
+<tr><td><b>Font size</b></td><td>{FONT_SIZE}</td></tr>
 <tr><td><b>{T_LINE_LENGTH}</b></td><td><input type="text" id="line_length" class="form-control" style="width:80px;display:inline" placeholder="{LINE_LENGTH_VAL}" data-p="line_length" data-e="blur"><br><small>{T_LINE_LENGTH_HELP}</small></td></tr>
 <tr><td><b>Strip from destination</b></td><td><input type="text" id="strip_dest" class="form-control" style="width:160px;display:inline" placeholder="{STRIP_DEST_VAL}" data-p="strip_dest" data-e="blur" data-enc="1"></td></tr>
+<tr><td><b>Destination abbreviations</b></td><td><input type="text" id="dest_abbrev" class="form-control" style="width:160px;display:inline" value="{DEST_ABBREV_VAL}" data-p="dest_abbrev" data-e="blur" data-enc="1"></td></tr>
+<tr><td><span class="advanced-scroll-label">Scroll long destination names</span></td><td><div style="display:flex;align-items:center;justify-content:flex-end">{DEST_SCROLL_INLINE}</div></td></tr>
 <tr><td><b>{T_NO_MORE_DEP}</b></td><td><input type="text" id="no_more_departures" class="form-control" style="width:160px;display:inline" placeholder="{NO_MORE_DEP_VAL}" data-p="no_more_departures" data-e="blur" data-enc="1"></td></tr>
 <tr><td><b>{T_MINS}</b></td><td><input type="text" id="mins" class="form-control" style="width:160px;display:inline" placeholder="{MINS_VAL}" data-p="mins" data-e="blur" data-enc="1"></td></tr>
+<tr><td><b>Now text</b></td><td><input type="text" id="now_text" class="form-control" style="width:160px;display:inline" placeholder="{NOW_TEXT_VAL}" data-p="now_text" data-e="blur" data-enc="1"></td></tr>
 </table>
 {SHOW_STATION_CHK}
 {XS_LINE_ID_CHK}
-{DEST_SCROLL_CHK}
+{RT_INDICATOR_CHK}
 {DNS_SECTION}
 </details></div>
 <button type="button" class="btn btn-full" data-u="/?save=true">&#128190; {T_SAVE}</button>
@@ -215,6 +216,11 @@ fetch('/?list_line_display='+encodeURIComponent(v));
 var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
 el.classList.add('on');
 }
+function setNightBusHighlight(v,el){
+fetch('/?night_bus_highlight='+encodeURIComponent(v));
+var p=el.parentNode;if(p)p.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});
+el.classList.add('on');
+}
 function applyButtonViewLock(v){
 var lm=document.getElementById('listmode');
 if(lm){
@@ -248,7 +254,7 @@ if(!u){var v=ev.target.value.replace(/#/g,'%23');if(el.dataset.enc)v=encodeURICo
 fetch(u,{method:'GET'});
 if(el.id==='BUS'){var show=ev.target.checked;var nbr=document.getElementById('night-buses-row');if(nbr)nbr.style.display=show?'':'none';var nbs=document.getElementById('night-buses-separator');if(nbs)nbs.style.display=show?'':'none';}
 if(el.id==='METRO'){var show=ev.target.checked;var mfr=document.getElementById('metro-filter-row');if(mfr)mfr.style.display=show?'':'none';var mfs=document.getElementById('metro-filter-separator');if(mfs)mfs.style.display=show?'':'none';}
-if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=true;}else if(list){md.value='4';md.disabled=true;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime'),lds=document.getElementById('list-line-display');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="1"]');if(b)b.classList.add('on');}}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="0"]');if(b)b.classList.add('on');}}else{if(ct)ct.value='0';}updateDlrScrollControls();}
+if(el.id==='listmode'){var mode=String(ev.target.value),classic=(mode==='0'),list=(mode==='1'),dlr=(mode==='2');var cs=document.getElementById('custom-scroll-section');if(cs)cs.style.display=(classic||dlr)?'':'none';var cp=document.getElementById('custom-scroll-position-row');if(cp)cp.style.display=classic?'':'none';var cps=document.getElementById('custom-scroll-position-separator');if(cps)cps.style.display=classic?'':'none';var dr=document.getElementById('dlr-scroll-delay-row'),di=document.getElementById('dlr_scroll_delay');if(dr)dr.style.display=dlr?'':'none';if(dlr&&di)di.value='15';var ds=document.getElementById('disruption-msg-section');if(ds)ds.style.display='none';var ss=document.getElementById('classic-scroll-speed-section');if(ss)ss.style.display=classic?'':'none';var cc=document.getElementById('clock-list-section');if(cc)cc.style.display=(list||dlr)?'':'none';var le=document.getElementById('clock-list-extra');if(le)le.style.display=list?'':'none';var lcs=document.getElementById('clock-list-color-separator');if(lcs)lcs.style.display=list?'':'none';var md=document.getElementById('maxdest');if(md){if(dlr){md.value='3';md.disabled=false;}else if(list){md.value='4';md.disabled=false;}else{md.value='3';md.disabled=false;}}var vc=document.getElementById('view-colour-section');if(vc)vc.style.display=(list||dlr)?'':'none';var lc=document.getElementById('LISTCOLOR'),lt=document.getElementById('LISTCOLOR_TIME'),ct=document.getElementById('clocktime'),lds=document.getElementById('list-line-display');if(list){if(lc)lc.checked=true;if(lt)lt.checked=true;if(ct)ct.value='0';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="1"]');if(b)b.classList.add('on');}}else if(dlr){if(lc)lc.checked=false;if(lt)lt.checked=false;if(ct)ct.value='2';if(lds){lds.querySelectorAll('button').forEach(function(b){b.classList.remove('on');});var b=lds.querySelector('button[data-v="0"]');if(b)b.classList.add('on');}}else{if(ct)ct.value='0';}updateDlrScrollControls();}
 });});
 updateDlrScrollControls();
 applyButtonViewLock({BUTTON_MODE_VALUE});
@@ -364,7 +370,7 @@ def html():
     # Station selection selector. Mode 1 maps to the legacy multiple-stop/combined-list logic.
     # Mode 2 is intentionally reserved for the future true Multiple mode and currently behaves like Single.
     _station_selection_mode = int(s.get("station_selection_mode", 1 if int(s.get("multiple", 0)) else 0))
-    if _station_selection_mode not in (0, 1, 2):
+    if _station_selection_mode not in (0, 1):
         _station_selection_mode = 1 if int(s.get("multiple", 0)) else 0
     _combined_station_mode = _station_selection_mode == 1
     station_selection_html = ''.join([
@@ -372,7 +378,6 @@ def html():
         '<span class="seg" id="station-selection-mode" style="width:100%">',
         '<button type="button" onclick="setStationSelectionMode(0,this)" class="', ("on" if _station_selection_mode == 0 else ""), '">Single</button>',
         '<button type="button" onclick="setStationSelectionMode(1,this)" class="', ("on" if _station_selection_mode == 1 else ""), '">Combined list</button>',
-        '<button type="button" onclick="setStationSelectionMode(2,this)" class="', ("on" if _station_selection_mode == 2 else ""), '">Multiple</button>',
         '</span></div>'
     ])
 
@@ -402,12 +407,12 @@ def html():
 
     # maxdest options. List and DLR have fixed physical row counts.
     _view_mode = int(s.get("listmode", 0))
-    _maxdest_value = 5 if _combined_station_mode else (3 if _view_mode == 2 else (4 if _view_mode == 1 else s["maxdest"]))
+    _maxdest_value = 5 if _combined_station_mode else s["maxdest"]
     _p = []
     for i in range(1, 21):
         _p.append(_opt(i, _maxdest_value, str(i)))
     maxdest_opt = "".join(_p)
-    maxdest_disabled = " disabled" if _combined_station_mode or _view_mode in (1, 2) else ""
+    maxdest_disabled = " disabled" if _combined_station_mode else ""
 
     # metro section
     metro_html = _traffic_chip('METRO', stn['METRO'], '/?type=metro', 'Metro')
@@ -464,13 +469,10 @@ def html():
     # ship
     ship_html = ""
     if op_code != "SJ":
-        ship_html = _traffic_chip('SHIP', stn['SHIP'], '/?type=ship', 'Ferrries')
+        ship_html = _traffic_chip('SHIP', stn['SHIP'], '/?type=ship', 'Ferries')
 
-    # offset options
-    _p = []
-    for i in range(0, 31):
-        _p.append(_opt(i, stn["offset"], str(i) + " min"))
-    offset_opt = "".join(_p)
+    # hide departures within (minutes)
+    offset_value = max(0, min(30, int(stn.get('offset', 0))))
 
     # direction
     dirs = [D["north_south"], D["north"], D["south"]]
@@ -592,14 +594,14 @@ def html():
         _long_button_mode = 0
 
     button_mode_html = ''.join([
-        '<div style="margin:12px 0 10px 0">',
+        '<div class="advanced-button-row" style="margin:2px 0 0 0">',
         '<label class="control-label" style="margin-bottom:6px">Short button press</label>',
         '<span class="seg" id="button-behaviour" style="width:100%;', ("opacity:.35;pointer-events:none;" if _short_locked else ""), '">',
         '<button type="button" data-v="0" onclick="setButtonMode(0,this)" class="', ("on" if _button_mode == 0 else ""), '">Toggle screen</button>',
         '<button type="button" data-v="1" onclick="setButtonMode(1,this)" class="', ("on" if _button_mode == 1 else ""), '">Switch view</button>',
         '</span>',
         '</div>',
-        '<div style="margin:10px 0 14px 0">',
+        '<div class="advanced-button-row" style="margin:0">',
         '<label class="control-label" style="margin-bottom:6px">Long button press</label>',
         '<span class="seg" id="long-button-behaviour" style="width:100%">',
         '<button type="button" data-v="0" onclick="setLongButtonMode(0,this)" class="', ("on" if _long_button_mode == 0 else ""), '">Toggle screen</button>',
@@ -609,11 +611,10 @@ def html():
         '<button type="button" data-v="2" onclick="setLongButtonMode(2,this)" class="', ("on" if _long_button_mode == 2 else ""), '">Exit app</button>',
         '</span>',
         '</div>',
-        '<div style="border-top:1px solid var(--border);margin:0 0 12px 0"></div>'
     ])
 
     # show station
-    show_stn_html = _chk("show_my_station", s["show_my_station"], "/?show_station=1", T["show_station"])
+    show_stn_html = _chk("show_my_station", s["show_my_station"], "/?show_station=1", T["show_station"]).replace('<div class="toggle-row">', '<div class="toggle-row advanced-toggle-row">', 1)
 
     # LED tone swatches (128-wide boards also get a white option)
     _color_cur = s.get("color", 1)
@@ -673,6 +674,9 @@ def html():
 
     # dest_scroll
     dest_scroll_html = _chk("DEST_SCROLL", s.get("dest_scroll", 0), "/?dest_scroll=switch", "Scroll long destination names")
+    _dsc = " checked" if int(s.get("dest_scroll", 0)) else ""
+    dest_scroll_inline = '<label class="switch"><input type="checkbox" id="DEST_SCROLL" data-u="/?dest_scroll=switch"' + _dsc + '><span class="slider"></span></label>'
+    rt_indicator_html = _chk("RT_INDICATOR", s.get("rt_indicator", 0), "/?rt_indicator=switch", "Real-time indicator").replace('<div class="toggle-row">', '<div class="toggle-row advanced-toggle-row">', 1)
     # Combined list standard: show both colour toggles ON (and disabled below).
     _listcolor_value = 1 if _combined_station_mode else s["listcolor"]
     _listcolor_time_value = 1 if _combined_station_mode else s.get("listcolor_time", 0)
@@ -697,13 +701,23 @@ def html():
         '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
     ])
 
+    _night_bus_highlight_mode = int(s.get("night_bus_highlight", 0))
+    night_bus_highlight_html = ''.join([
+        '<div style="margin-top:10px"><label class="control-label" style="margin-bottom:6px">Night bus highlighting</label>',
+        '<span class="seg" id="night-bus-highlight" style="width:100%">',
+        '<button type="button" data-v="0" onclick="setNightBusHighlight(0,this)" class="', ("on" if _night_bus_highlight_mode == 0 else ""), '">Off</button>',
+        '<button type="button" data-v="2" onclick="setNightBusHighlight(2,this)" class="', ("on" if _night_bus_highlight_mode == 2 else ""), '">On</button>',
+        '<button type="button" data-v="1" onclick="setNightBusHighlight(1,this)" class="', ("on" if _night_bus_highlight_mode == 1 else ""), '">Mixed Traffic</button>',
+        '</span></div>'
+    ])
+
     # View-specific colour controls: only relevant to SL List and TfL DLR.
     _view_colour_show = "" if int(s.get("listmode", 0)) in (1, 2) else "display:none;"
     view_color_toggles = ''.join([
         '<div id="view-colour-section" style="', _view_colour_show, '">',
         '<div style="border-top:1px solid var(--border);margin:10px 0"></div>',
-        '<details><summary>🎨 Line / Minute colour</summary>',
-        line_display_html, listcolor_html, listcolor_time_html,
+        '<details><summary>🎨 Display settings</summary>',
+        line_display_html, listcolor_html, listcolor_time_html, night_bus_highlight_html,
         '</details></div>'
     ])
 
@@ -721,6 +735,8 @@ def html():
         '</div></details>'
     ])
 
+    _dest_abbrev_val = ", ".join([str(x[0]) + "=" + str(x[1]) for x in s.get("dest_abbrev", []) if isinstance(x, (list, tuple)) and len(x) >= 2])
+    _now_text_val = str(s.get("now_text", "Nu"))
     # Navbar lightbulb reflects the display's actual current visibility.
     led_off_cls = "" if functions.get_screen_state() else " led-off"
     sig_bars = _sig_bars(_rssi(functions))
@@ -758,7 +774,7 @@ def html():
         "TRAIN_CHK": train_html, "TRAM_SECTION": tram_html,
         "SHIP_SECTION": ship_html,
         "T_HIDE_DEPARTURES": T["hide_departures"],
-        "OFFSET_OPTIONS": offset_opt,
+        "OFFSET_VALUE": str(offset_value),
         "DIRECTION_SECTION": dir_html,
         "SCROLL_SECTION": scroll_html,
         "T_TRAFFIC_TYPES": T["traffic_types"],
@@ -769,9 +785,9 @@ def html():
         "T_SAVE": T["save"],
         "T_ADVANCED": T["advanced"],
         "T_CLOCK": T["clock"],
-        "T_TONE": T["tone"], "TONE_SWATCHES": tone_html,
+        "T_TONE": T["tone"], "TONE_SWATCHES": tone_html, "FONT_SIZE": font_size_html,
         "XS_LINE_ID_CHK": xs_line_id_chk,
-        "DEST_SCROLL_CHK": dest_scroll_html,
+        "DEST_SCROLL_CHK": dest_scroll_html, "DEST_SCROLL_INLINE": dest_scroll_inline, "RT_INDICATOR_CHK": rt_indicator_html,
         "LISTCOLOR_CHK": listcolor_html,
         "LISTCOLOR_TIME_CHK": listcolor_time_html,
         "T_LINE_LENGTH": T["line_length"],
@@ -780,10 +796,12 @@ def html():
         "T_SHOW_LINES": T["show_lines"],
         "SHOW_LINES_VAL": ",".join(s["show_lines"]) if isinstance(s["show_lines"], list) else str(s["show_lines"]),
         "STRIP_DEST_VAL": ",".join(s.get("strip_dest", [])) if isinstance(s.get("strip_dest"), list) else str(s.get("strip_dest", "")),
+        "DEST_ABBREV_VAL": _dest_abbrev_val,
         "T_NO_MORE_DEP": T["no_more_departures_label"],
         "NO_MORE_DEP_VAL": str(s["no_more_departures"]),
         "T_MINS": T["mins_label"],
         "MINS_VAL": str(s["mins"]),
+        "NOW_TEXT_VAL": _now_text_val,
         "OPS_JSON": ops_json, "STN_JSON": stn_json,
         
     }

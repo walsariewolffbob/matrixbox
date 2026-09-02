@@ -80,6 +80,7 @@ def handle_button_event(event):
                 varinit.settings["maxdest"] = 5 if _combined else 4
                 varinit.settings["listcolor"] = 1
                 varinit.settings["listcolor_time"] = 1
+                varinit.settings["night_bus_highlight"] = 0
                 varinit.settings["list_line_display"] = 1
                 varinit.settings["clocktime"] = 0
                 if _combined:
@@ -89,6 +90,7 @@ def handle_button_event(event):
                 varinit.settings["maxdest"] = 3
                 varinit.settings["listcolor"] = 0
                 varinit.settings["listcolor_time"] = 0
+                varinit.settings["night_bus_highlight"] = 1
                 varinit.settings["list_line_display"] = 0
                 varinit.settings["clocktime"] = 2
                 varinit.settings["dlr_scroll_delay"] = 15
@@ -112,11 +114,6 @@ def handle_button_event(event):
         ))
 
         _long_mode = int(varinit.settings.get("long_button_mode", 2))
-
-        # Multiple stations reserves view switching for later logic.
-        if _station_mode == 2 and _long_mode == 1:
-            _long_mode = 0
-            varinit.settings["long_button_mode"] = 0
 
         if _long_mode == 0:
             toggle_screen()
@@ -614,11 +611,23 @@ def fetch_data(host, port=80, args="", headers = "", filetype="text"):
     #print("DATA ", data)
     return data
 
+def _now_text():
+    try:
+        return str(varinit.settings.get("now_text", "Nu")).strip() or "Nu"
+    except:
+        return "Nu"
+
+def _is_night_bus_line(line_id):
+    try:
+        return str(line_id)[-2:-1] == "9"
+    except:
+        return False
+
 def sort_by_minutes(lst):
     def get_minutes(sub_lst):
         value = str(sub_lst[3]).strip().lower()
 
-        if value == "nu":
+        if value == _now_text().lower():
             return 0
 
         if ":" in value:
@@ -660,13 +669,6 @@ def sort_by_hours(lst):
 
 def _converttime(ts, age = 0): return time.mktime(time.struct_time((int(ts[:4]),int(ts[5:7]),int(ts[8:10]),int(ts[11:13]),int(ts[14:16]),int(ts[17:19]) + int(age),0,-1,-1)))
 
-def _is_night_bus_line(line_id):
-    '''Return True for SL night-bus line IDs using MatrixBOX's existing rule.'''
-    try:
-        return str(line_id)[-2:-1] == '9'
-    except:
-        return False
-
 def traffic_parser(data, traffic_type, num="1"):
     ## Vänder "DIRECTION" på BUSES och TRAINS ##############
     stn = varinit.settings["stations"][num]
@@ -677,16 +679,16 @@ def traffic_parser(data, traffic_type, num="1"):
     ########################################################
     print(" >>", traffic_type)
     dataout = []
-    _maxdest = int(varinit.settings["maxdest"])
+    _maxdest = max(1, int(varinit.settings["maxdest"]))
     _view_mode = int(varinit.settings.get("listmode", 0))
     if _view_mode == 2:
-        # TfL DLR has exactly three visible departure slots.
-        _maxdest = 3
+        # DLR can physically render at most three rows, but lower user values are respected.
+        _maxdest = min(_maxdest, 3)
     elif _view_mode == 1:
-        # SL List on the 128x32 departures display has exactly four visible rows.
-        _maxdest = 4
+        # SL List can physically render at most four rows, but lower user values are respected.
+        _maxdest = min(_maxdest, 4)
     elif _view_mode:
-        _maxdest = varinit.if_tall // 8
+        _maxdest = min(_maxdest, varinit.if_tall // 8)
     #show_lines = varinit.settings["show_lines"]
     #has_line_filter = isinstance(show_lines, list) and len(show_lines) > 0
     clocktime = varinit.settings["clocktime"]
@@ -724,7 +726,7 @@ def traffic_parser(data, traffic_type, num="1"):
                 if int(clocktime) == 1:
                     _minsleft = departure_time
                 elif difference < 60:
-                    _minsleft = "Nu"
+                    _minsleft = _now_text()
                 elif int(clocktime) == 2:
                     _minsleft = minsleft
                 elif difference > 30 * 60:
@@ -911,7 +913,7 @@ def reformat_data(trainlist):
         
         offs = max(0, varinit.if_long - strlen(tlist[3]))
         # SL Classic: capital "Nu" needs one extra pixel at the right edge.
-        if str(tlist[3]).strip().lower() == "nu":
+        if str(tlist[3]).strip().lower() == _now_text().lower():
             offs = max(0, offs - 1)
         renderstring(offs*"(" + tlist[3], 1)
         renderstring(tlist[1] + spacing + tlist[2], 1)
@@ -1517,9 +1519,7 @@ def dlr_mode():
     except:
         reset_dlr_message_cycle()
         _dlr_phase = "normal"
-    # DLR physically has three departure rows. Keep the app setting consistent
-    # even when the mode was loaded from saved settings rather than selected in the UI.
-    varinit.settings["maxdest"] = 3
+    # DLR physically renders up to three rows; the user may request fewer.
     nightcheck()
     # renderstring() changes currentfont. DLR has mixed large/small rows, so always
     # begin from a known font state instead of inheriting the previous renderer.
@@ -1574,22 +1574,17 @@ def dlr_mode():
         refresh()
         return time.monotonic()
 
-    rows = [row[:] for row in trainlist[:3] if isinstance(row, list) and len(row) >= 4]
-
-    # Night-bus highlighting is derived at render time from the existing line ID.
-    # No extra night-bus flag is carried in the departure data structure.
-    _night_highlight_mode = int(varinit.settings.get('night_bus_highlight', 0))
+    _row_limit = min(3, max(1, int(varinit.settings.get("maxdest", 3))))
+    rows = [row[:] for row in trainlist[:_row_limit] if isinstance(row, list) and len(row) >= 4]
     _visible_departures = [row for row in rows if len(row) > 4]
     _all_visible_are_night = bool(_visible_departures)
     for _row in _visible_departures:
         if not _is_night_bus_line(_row[1]):
             _all_visible_are_night = False
             break
-    _night_highlight_enabled = (
-        _night_highlight_mode == 2 or
-        (_night_highlight_mode == 1 and not _all_visible_are_night)
-    )
-
+    _night_highlight_mode = int(varinit.settings.get("night_bus_highlight", 0))
+    _night_highlight_enabled = (_night_highlight_mode == 2 or
+                                (_night_highlight_mode == 1 and not _all_visible_are_night))
     cls(top)
     cls(bottom)
 
@@ -1606,7 +1601,6 @@ def dlr_mode():
         #   0 = visible row numbers (1, 2, 3...)
         #   1 = actual transit line number/id from departure data
         _line_mode = int(varinit.settings.get("list_line_display", 0))
-        _night_highlight = _night_highlight_enabled and _is_night_bus_line(row[1])
         _line_label = str(row[1]).strip() if _line_mode else str(number)
         prefix = _line_label + " "
         raw_dest = str(row[2]).split('(')[0].split(" via")[0].strip()
@@ -1632,7 +1626,7 @@ def dlr_mode():
             value_right = max(0, value_right - 1)
 
         actual_value_width = _font_width(value, font_index)
-        is_now = value.strip().lower() == "nu"
+        is_now = value.strip().lower() == _now_text().lower()
 
         # Rows 2/3 keep a stable value slot for a given departure.  Once a wider
         # minute/time marker has reserved space, NU does not reclaim those pixels.
@@ -1730,17 +1724,14 @@ def dlr_mode():
         #   listcolor      ON = white departure number, OFF = yellow
         #   listcolor_time ON = white time/minutes,     OFF = yellow
         # Keep the destination itself in the normal destination colour.
-        line_colour = "white" if int(varinit.settings.get("listcolor", 0)) else "yellow"
-        time_colour = "white" if int(varinit.settings.get("listcolor_time", 0)) else "yellow"
-        if _night_highlight:
-            line_colour = 'red'
-            time_colour = 'red'
+        _night_highlight = _night_highlight_enabled and _is_night_bus_line(row[1])
+        line_colour = "red" if _night_highlight else ("white" if int(varinit.settings.get("listcolor", 0)) else "yellow")
+        time_colour = "red" if _night_highlight else ("white" if int(varinit.settings.get("listcolor_time", 0)) else "yellow")
         prefix_width = _font_width(prefix, font_index)
         renderstring(prefix, 0, large=(font_index == 0), smallfont=(font_index != 0),
                      target_bmp=bmp, target_offs=y, start_x=0, sys_msg=line_colour)
         renderstring(dest, 0, large=(font_index == 0), smallfont=(font_index != 0),
-                     target_bmp=bmp, target_offs=y, start_x=prefix_width,
-                     sys_msg=('red' if _night_highlight else False))
+                     target_bmp=bmp, target_offs=y, start_x=prefix_width)
         renderstring(value, 0, large=(font_index == 0), smallfont=(font_index != 0),
                      target_bmp=bmp, target_offs=y, start_x=value_x, sys_msg=time_colour)
 
@@ -1760,10 +1751,7 @@ def dlr_mode():
     return time.monotonic()
 
 def list_mode(mini=False, half=False):
-    # SL List physically has four departure rows on this 128x32 layout. Keep the
-    # app setting consistent even when List was restored directly from settings.
-    if int(varinit.settings.get("listmode", 0)) == 1:
-        varinit.settings["maxdest"] = 4
+    # SL List physically renders up to four rows; the user may request fewer.
     mini = varinit.settings["mini"]
 
     #### debug
@@ -1891,30 +1879,9 @@ def list_mode(mini=False, half=False):
                         _w = strlen(_a[1][:varinit.settings["line_length"]])
                         if _w > _xs_max_lw: _xs_max_lw = _w
 
-            # Determine highlighting from the original line IDs before List
-            # optionally replaces them with visible row numbers.
-            _night_highlight_mode = int(varinit.settings.get('night_bus_highlight', 0))
-            _visible_departures = [
-                row for row in trainlist[:4]
-                if isinstance(row, list) and len(row) > 4 and row[4] != CLOCK_ROW_MARK
-            ]
-            _all_visible_are_night = bool(_visible_departures)
-            for _row in _visible_departures:
-                if not _is_night_bus_line(_row[1]):
-                    _all_visible_are_night = False
-                    break
-            _night_highlight_enabled = (
-                _night_highlight_mode == 2 or
-                (_night_highlight_mode == 1 and not _all_visible_are_night)
-            )
-
             for x, all in enumerate(trainlist):
 
                 is_clock_row = len(all) > 4 and all[4] == CLOCK_ROW_MARK
-                _row_is_night_bus = (
-                    not is_clock_row and _is_night_bus_line(all[1])
-                )
-                _night_highlight = _night_highlight_enabled and _row_is_night_bus
                 # Shared List/DLR line-label mode. SL List defaults to actual
                 # line numbers, but can instead show visible row numbers 1..4.
                 if not is_clock_row and not int(varinit.settings.get("list_line_display", 1)):
@@ -2000,7 +1967,7 @@ def list_mode(mini=False, half=False):
                     offs = varinit.if_long - strlen(all[3])
 
                 # SL List: one pixel is enough to keep "Nu" clear of the edge.
-                if str(all[3]).replace("(", "").strip().lower() == "nu":
+                if str(all[3]).replace("(", "").strip().lower() == _now_text().lower():
                     offs = max(0, offs - 1)
                 if half: 
                     all[3] = all[3].replace(" " + if_not_clocktime,"")
@@ -2019,12 +1986,19 @@ def list_mode(mini=False, half=False):
                 
                 else: multiple_offset = ""
         
-                min_color = "white" if varinit.settings.get("listcolor_time", 0) or varinit.rotated else "yellow"
-                lin_color = "yellow" if not varinit.settings["listcolor"] else "white"
+                _night_mode = int(varinit.settings.get("night_bus_highlight", 0))
+                _visible_departures = [r for r in trainlist[:min(4, max(1, int(varinit.settings.get("maxdest", 4))))]
+                                       if isinstance(r, list) and len(r) > 4 and r[4] != CLOCK_ROW_MARK]
+                _all_visible_are_night = bool(_visible_departures)
+                for _rnb in _visible_departures:
+                    if not _is_night_bus_line(_rnb[1]):
+                        _all_visible_are_night = False
+                        break
+                _night_enabled = (_night_mode == 2 or (_night_mode == 1 and not _all_visible_are_night))
+                _night_row = (not is_clock_row and _night_enabled and _is_night_bus_line(all[1]))
+                min_color = "red" if _night_row else ("white" if varinit.settings.get("listcolor_time", 0) or varinit.rotated else "yellow")
+                lin_color = "red" if _night_row else ("yellow" if not varinit.settings["listcolor"] else "white")
                 clock_color = varinit.settings.get("clock_row_color", "white")
-                if _night_highlight:
-                    min_color = 'red'
-                    lin_color = 'red'
                 if varinit.rotated or varinit.display.width <= 64:
                     added_space = ""
                     line = ""
@@ -2052,7 +2026,7 @@ def list_mode(mini=False, half=False):
                     _lpart = 100 + x
                     _dest_pad = line_col * "("
                     renderstring(multiple_offset + minsleft, _lpart, 0, 0, inv, sys_msg=min_color)
-                    renderstring(multiple_offset + _dest_pad + dest, _lpart, 0, 0, inv, sys_msg=(clock_color if is_clock_row else ('red' if _night_highlight else False)))
+                    renderstring(multiple_offset + _dest_pad + dest, _lpart, 0, 0, inv, sys_msg=(clock_color if is_clock_row else False))
                     if not half and not varinit.rotated: renderstring(multiple_offset + line, _lpart, 0, 0, inv, sys_msg=lin_color)
                     if x > 4: continue
                 else:
@@ -2065,8 +2039,7 @@ def list_mode(mini=False, half=False):
                         _overflow = _full_dest_w - _max_px
                         varinit.dest_bmps[x].fill(0)
                         renderstring(dest, 100+x, 0, 0, inv, mini=mini,
-                                     target_bmp=varinit.dest_bmps[x], target_offs=0,
-                                     sys_msg=('red' if _night_highlight else False))
+                                     target_bmp=varinit.dest_bmps[x], target_offs=0)
                         varinit.dest_tgs[x].x = _line_col_w
                         varinit.dest_tgs[x].y = extrarow + x * _row_step
                         varinit.dest_tgs[x].hidden = False
@@ -2083,7 +2056,7 @@ def list_mode(mini=False, half=False):
                         varinit.overlay_tg.hidden = False
                     else:
                         renderstring(multiple_offset + minsleft, 100+x, 0, 0, inv, mini=mini, sys_msg=min_color)
-                        renderstring(multiple_offset + added_space + dest, 100+x, 0, 0, inv, mini=mini, sys_msg=(clock_color if is_clock_row else ('red' if _night_highlight else False)))
+                        renderstring(multiple_offset + added_space + dest, 100+x, 0, 0, inv, mini=mini, sys_msg=(clock_color if is_clock_row else False))
                         if not half and not varinit.rotated and (varinit.display.width > 64 or xs_line_id):
                             renderstring(multiple_offset + line, 100+x, 0, 0, inv, mini=mini, sys_msg=lin_color)
                     if x > varinit.if_tall // 8 - 1: continue

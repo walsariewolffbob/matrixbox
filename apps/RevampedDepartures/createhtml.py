@@ -455,17 +455,14 @@ def huvudsidan(request):
             functions.switch(_screen=False)
         return (200, {}, "")
     elif "maxdest" in request.params:
-        # Combined list owns the fetch depth even though SL List has four visible rows.
-        _mode = int(varinit.settings.get("listmode", 0))
         _combined = int(varinit.settings.get("station_selection_mode", 1 if int(varinit.settings.get("multiple", 0)) else 0)) == 1
         if _combined:
             varinit.settings["maxdest"] = 5
-        elif _mode == 2:
-            varinit.settings["maxdest"] = 3
-        elif _mode == 1:
-            varinit.settings["maxdest"] = 4
         else:
-            varinit.settings["maxdest"] = int(request.params["maxdest"])
+            try:
+                varinit.settings["maxdest"] = max(1, min(20, int(request.params["maxdest"])))
+            except:
+                pass
             functions.switch(_screen=False)
         return (200, {}, "")
     elif "direction" in request.params:
@@ -477,7 +474,7 @@ def huvudsidan(request):
             _station_mode = int(request.params["station_selection_mode"])
         except:
             _station_mode = 0
-        if _station_mode not in (0, 1, 2):
+        if _station_mode not in (0, 1):
             _station_mode = 0
         varinit.settings["station_selection_mode"] = _station_mode
         # Only Combined list activates the original multiple-stop logic.
@@ -514,7 +511,10 @@ def huvudsidan(request):
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "offset" in request.params:
-        varinit.settings["stations"][num]["offset"] = int(request.params["offset"])
+        try:
+            varinit.settings["stations"][num]["offset"] = max(0, min(30, int(request.params["offset"])))
+        except:
+            pass
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "brightness" in request.params:
@@ -876,6 +876,12 @@ def huvudsidan(request):
         varinit.settings["mins"] = str(request.params["mins"])
         for a in html_decode:
             varinit.settings["mins"] = varinit.settings["mins"].replace(a, html_decode[a])
+        functions.switch(_screen=False)
+        return (200, {}, "")
+    elif "now_text" in request.params:
+        varinit.settings["now_text"] = str(request.params["now_text"]) or "Nu"
+        for a in html_decode:
+            varinit.settings["now_text"] = varinit.settings["now_text"].replace(a, html_decode[a])
         functions.switch(_screen=False)
         return (200, {}, "")
     elif "power" in request.params:
