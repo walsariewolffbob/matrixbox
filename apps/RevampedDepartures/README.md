@@ -50,10 +50,6 @@ The button on the box still works normally (depending on the settings in the web
 
 *This is still in the development phase, so the code may be somewhat unstable. It is functional, but more extensive testing is still required. Moreover, this only works when the RevampedDepartures app is running, as the changes are made in there. Not in the MatrixBox core code*
 
-## Future Preperation: Multiple stations
-
-I added a third "view type", which in the future should be able to have up to 5 stations prepared, with the button being able to switch between them. This is mostly out of personal interest, as I live in a place where I use different transport modes (from different stops) during weekdays vs the weekend. The UI is prepared for that, but the logic is not implemented yet.
-
 ---
 
 If you'd like to try out my changes and found any bugs or things not looking or working like they should, shoot me a message!
