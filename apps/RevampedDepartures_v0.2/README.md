@@ -8,6 +8,8 @@ To be able to, in the future, make it possible to install or create custom skins
 
 As of yet, installing new skins is not yet inherently possible, this is next on the to-do list.
 
+*This update needs more extensive testing on the physical system. For a more stable app, use v0.1.5.1*
+
 ## Previous updates in v0.1.5.1
 
 Below are previous important changes from previous versions listed.
