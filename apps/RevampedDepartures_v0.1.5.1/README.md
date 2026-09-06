@@ -1,6 +1,6 @@
 # RevampedDepartures
 
-**This README covers the changes I've made available in this version. General functionality is mirrored to the latest official MatrixBox/Departures app update of 2026-08-30.**
+**This README covers the changes I've made available in this version. General functionality is mirrored to the latest official `MatrixBox/Departures` app, as available on 2026-08-30.**
 
 ## Minor updates
 
