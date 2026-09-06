@@ -1,6 +1,6 @@
-# RevampedDepartures V0.2
+# RevampedDepartures v0.2
 
-**This README covers the changes I've made available in this version. General functionality is mirrored to the latest official MatrixBox/Departures app update of 2026-08-30.**
+**This README covers the changes I've made available in this version. General functionality is mirrored to the latest official MatrixBox/Departures app update of 2026-09-06.**
 
 ## Seperation of 'skins' and app core
 
@@ -8,7 +8,9 @@ To be able to, in the future, make it possible to install or create custom skins
 
 As of yet, installing new skins is not yet inherently possible, this is next on the to-do list.
 
-## Previous updates
+*This update needs more extensive testing on the physical system. For a more stable app, use v0.1.5.1*
+
+## Previous updates in v0.1.5.1
 
 Below are previous important changes from previous versions listed.
 
