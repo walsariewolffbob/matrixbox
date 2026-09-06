@@ -31,7 +31,6 @@ def read_package_manifest(package_dir):
 
 
 def validate_package(package_dir):
-    """Return (normalized_manifest, errors) for an external skin package."""
     errors = []
     try:
         manifest = read_package_manifest(package_dir)
@@ -80,12 +79,6 @@ def validate_package(package_dir):
 
 
 def install_package(package_dir, skins_dir):
-    """Install/update one validated package into departures/skins/<id>/.
-
-    Existing files listed by the incoming package are replaced. Unrelated files
-    already present in the skin folder are left untouched intentionally; package
-    cleanup/removal policy can be added later without risking data loss.
-    """
     manifest, errors = validate_package(package_dir)
     if errors:
         raise ValueError('; '.join(errors))
