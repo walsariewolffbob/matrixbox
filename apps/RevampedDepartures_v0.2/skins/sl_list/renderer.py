@@ -35,9 +35,6 @@ class SlListRenderer(BaseRenderer):
     def build(self, departures, context):
         services = self._services(context)
 
-        # Establish List's complete display ownership before drawing. This is
-        # especially important when entering from Classic/DLR, whose TileGrids
-        # use different visible surfaces.
         services.cls(services.top)
         services.cls(services.bottom)
         services.cls(services.topbottom)
@@ -45,9 +42,6 @@ class SlListRenderer(BaseRenderer):
             self.skin = SlListSkin(services)
         self.skin.render(departures)
 
-        # Reassert the List TileGrid positions after the build so the first row
-        # is visible on the controller's initial commit, not only after a later
-        # timed update.
         _extra = 1 if services.varinit.settings['mini'] else 0
         services.varinit.tg1.y = _extra - 32
         services.varinit.tg2.y = _extra - 16
@@ -62,9 +56,6 @@ class SlListRenderer(BaseRenderer):
         services = self._services(context)
         changed = False
 
-        # Destination TileGrid animation belongs to this renderer now. The
-        # renderer changes its own TileGrid state; ViewController performs the
-        # physical refresh when 'refresh' is returned.
         if int(services.varinit.settings.get('dest_scroll', 0)):
             try:
                 for _rx, _rs in services.varinit.dest_scroll_state.items():
