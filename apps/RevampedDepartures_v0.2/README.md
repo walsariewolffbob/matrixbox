@@ -1,6 +1,6 @@
 # RevampedDepartures v0.2
 
-**This README covers the changes I've made available in this version. General functionality is mirrored to the latest official MatrixBox/Departures app update of 2026-09-06.**
+**This README covers the changes I've made available in this version. General functionality is mirrored to the latest official `MatrixBox/Departures` app update of 2026-09-06.**
 
 ## Seperation of 'skins' and app core
 
