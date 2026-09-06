@@ -50,14 +50,9 @@ class DlrRenderer(BaseRenderer):
         if self.skin is None:
             self.skin = DlrSkin(services)
 
-        # A settings rebuild after Scroll Text -> None must not inherit an
-        # in-flight message phase or ticker offset.
         if services._dlr_scroll_content_mode() == 'none':
             self.skin.reset_message_cycle()
 
-        # Preserve an untouched renderer-local copy of the most recently
-        # prepared departure snapshot. Message-cycle redraws can reuse this
-        # without asking the controller for another fetch.
         self.last_departures = self._copy_departures(departures)
         self.skin.render(self._copy_departures(self.last_departures))
         self.built = True
@@ -90,13 +85,9 @@ class DlrRenderer(BaseRenderer):
             except (TypeError, ValueError):
                 _scroll_timer = 0.0
 
-            # Fetch only when the ordinary departure-update interval is due.
             if now > _scroll_timer + _update_delay:
                 return 'rebuild'
 
-            # Otherwise reconstruct the lower DLR rows from the most recently
-            # prepared snapshot. This is a renderer-local redraw only; the
-            # controller still owns the physical display commit.
             if self.last_departures is not None:
                 self.skin.render(self._copy_departures(self.last_departures))
                 return 'refresh'
