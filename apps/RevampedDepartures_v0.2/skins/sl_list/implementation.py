@@ -8,7 +8,6 @@ class SlListSkin:
         self.dicts = services.dicts
 
     def render(self, prepared_data):
-        # SL List physically renders up to four rows; the user may request fewer.
         mini = self.v.settings["mini"]
         half = False
 
@@ -41,7 +40,6 @@ class SlListSkin:
         _dest_scroll = int(self.v.settings.get("dest_scroll", 0))
         _now = time.monotonic()
         self.f.cls(self.f.topbottom)
-        # Hide dest TileGrids and overlay; will be shown per-row if dest_scroll active
         try:
             for _dtg in self.v.dest_tgs: _dtg.hidden = True
             self.v.overlay_tg.hidden = True
@@ -50,7 +48,6 @@ class SlListSkin:
         except: pass
 
 
-        # trainlist = reformat_data(get_departure())
         ### DEBUG
     
         _r = 1
@@ -61,9 +58,6 @@ class SlListSkin:
             else: _r = 1
         except: pass
     
-        # Copy prepared records because the List drawing path mutates row strings
-        # (abbreviations, countdown padding, etc.). Controller-owned snapshots must
-        # remain reusable for the full build transaction.
         _prepared_copy = {}
         if isinstance(prepared_data, dict):
             for _key, _value in prepared_data.items():
@@ -87,9 +81,6 @@ class SlListSkin:
                 if isinstance(trainlist, list):
                     trainlist = [row[:] for row in trainlist if isinstance(row, list)]
 
-                # Determine night/day composition from the original transit line
-                # IDs before departure-order mode can replace visible line labels
-                # with 1/2/3/4. This result must stay identical for every row.
                 _night_mode = int(self.v.settings.get("night_bus_highlight", 0))
                 _visible_departures = [
                     r for r in trainlist[:min(4, max(1, int(self.v.settings.get("maxdest", 4))))]
@@ -105,8 +96,6 @@ class SlListSkin:
                     else:
                         _has_day = True
 
-                # Off = never; On = whenever a night bus is present;
-                # Mixed Traffic = only when night and day services coexist.
                 _night_enabled = (
                     _night_mode == 2
                     or (_night_mode == 1 and _has_night and _has_day)
@@ -152,12 +141,8 @@ class SlListSkin:
                     is_clock_row = len(all) > 4 and all[4] == self.f.CLOCK_ROW_MARK
                     is_msg_row = len(all) > 4 and all[4] == self.f.MSG_ROW_MARK
 
-                    # Preserve the actual transit line for classification and
-                    # highlighting even when the visible label is departure order.
                     _real_line = all[1] if len(all) > 1 else ""
 
-                    # Shared List/DLR line-label mode. SL List defaults to actual
-                    # line numbers, but can instead show visible row numbers 1..4.
                     if not (is_clock_row or is_msg_row) and not int(self.v.settings.get("list_line_display", 1)):
                         all[1] = str(x + 1)
                     all[2] = all[2].split('(')[0].split(" via")[0]#.lower()
@@ -244,7 +229,6 @@ class SlListSkin:
                     else:
                         offs = self.v.if_long - self.f.strlen(all[3])
 
-                    # SL List: one pixel is enough to keep "Nu" clear of the edge.
                     if str(all[3]).replace("(", "").strip().lower() == self.f._now_text().lower():
                         offs = max(0, offs - 1)
                     if half: 
