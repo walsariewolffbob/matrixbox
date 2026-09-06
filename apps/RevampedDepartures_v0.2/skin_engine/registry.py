@@ -53,19 +53,16 @@ def register_skin(manifest):
 
 
 def register_renderer(renderer_class):
-    """Compatibility registration API used by Stage 3A callers."""
     return register_skin(_class_manifest(renderer_class))
 
 
 def register_skin_parts(manifest, renderer_class):
-    """Register a manifest and renderer supplied by separate skin modules."""
     raw = dict(manifest or {})
     raw['renderer_class'] = renderer_class
     return register_skin(raw)
 
 
 def register_skin_module(module):
-    """Register a loaded skin package/module without allowing it to crash core."""
     try:
         manifest = getattr(module, 'manifest')
         renderer_class = getattr(module, 'Renderer')
@@ -78,11 +75,6 @@ def register_skin_module(module):
 
 
 def _skin_package_names():
-    """Return installed skin package names in deterministic order.
-
-    Discovery is intentionally lightweight for CircuitPython: list the local
-    skins/ directory and import only subdirectories containing __init__.py.
-    """
     names = []
     try:
         base = os.path.join(os.path.dirname(__file__), '..', 'skins')
@@ -105,7 +97,6 @@ def _skin_package_names():
 
 
 def discover_skins():
-    """Discover, import, validate and register every installed skin package."""
     for name in _skin_package_names():
         module_name = 'skins.' + name
         try:
@@ -119,7 +110,6 @@ def discover_skins():
 
 
 def resolve_renderer_mode(saved_mode):
-    """Return a usable renderer mode, falling back safely when unavailable."""
     try:
         mode = int(saved_mode)
     except Exception:
@@ -130,7 +120,6 @@ def resolve_renderer_mode(saved_mode):
 
 
 def default_renderer_mode():
-    """Return a deterministic safe mode for fallback startup."""
     if 0 in _MODE_RENDERERS:
         return 0
     modes = renderer_modes()
@@ -171,7 +160,6 @@ def renderer_manifest_for_mode(legacy_mode):
     return renderer_manifest(renderer_id) if renderer_id is not None else None
 
 
-# Stage 3A compatibility names.
 def renderer_metadata(renderer_id):
     return renderer_manifest(renderer_id)
 
@@ -185,7 +173,6 @@ def rejected_skins():
 
 
 def renderer_view_options():
-    """Return UI-safe records sorted by compatibility mode."""
     options = []
     for mode in renderer_modes():
         renderer_id = _MODE_RENDERERS[mode]
@@ -203,7 +190,6 @@ def renderer_view_options():
 
 
 def renderer_ui_profiles():
-    """Return only browser-safe capability/default information."""
     profiles = {}
     for mode in renderer_modes():
         renderer_id = _MODE_RENDERERS[mode]
