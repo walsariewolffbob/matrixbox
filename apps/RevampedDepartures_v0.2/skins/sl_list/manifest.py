@@ -1,0 +1,33 @@
+manifest = {
+    'id': 'sl_list',
+    'name': 'SL List',
+    'renderer_class': None,
+    'manifest_version': 1,
+    'departure_count': 4,
+    'supports_tick': True,
+    'supported_display_sizes': ('128x32',),
+    'legacy_listmode': 1,
+    'defaults': {
+        'maxdest': 4,
+        'listcolor': 1,
+        'listcolor_time': 1,
+        'night_bus_highlight': 0,
+        'list_line_display': 1,
+        'clocktime': 0,
+    },
+    'combined_defaults': {
+        'maxdest': 5,
+        'clock_row_align': 'left',
+    },
+    'ui': {'scroll_selector': False, 'custom_text_requires_custom_mode': False, 'message_interval_custom': False, 'line_display_default': 1},
+    'capabilities': {
+        'custom_scroll': False,
+        'custom_scroll_position': False,
+        'scroll_speed': False,
+        'clock': True,
+        'line_minute_colour': True,
+        'clock_extra': True,
+        'message_interval': False,
+    },
+    'show_in_view_menu': True,
+}
