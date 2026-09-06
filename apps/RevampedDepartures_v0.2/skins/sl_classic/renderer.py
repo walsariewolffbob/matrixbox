@@ -46,7 +46,6 @@ class SlClassicRenderer(BaseRenderer):
         return services
 
     def prepare_data(self, context, allow_messages=True):
-        """Prepare Classic departures or the next Classic message payload."""
         services = self._services(context)
 
         if allow_messages and services.varinit.shared['nightcount'] < 2:
@@ -86,9 +85,6 @@ class SlClassicRenderer(BaseRenderer):
         services = self._services(context)
         data = self._copy_departures(departures)
 
-        # Construct the complete Classic frame without a physical refresh.
-        # A disruption/ad payload only replaces the lower ticker; keep the
-        # already-rendered departure on the fixed top row.
         _message_frame = bool(services.varinit.active_message)
         if not _message_frame:
             services.cls(services.top)
@@ -115,7 +111,6 @@ class SlClassicRenderer(BaseRenderer):
         }
 
     def after_build(self, context):
-        """Finalize Classic scroll state before the controller commits."""
         services = self._services(context)
         services.varinit.scrollsum = self.scroll_width
         services.varinit.shared['scroll_timer'] = (
@@ -124,7 +119,6 @@ class SlClassicRenderer(BaseRenderer):
         return True
 
     def tick(self, now, context):
-        """Advance Classic and request controller rebuilds when needed."""
         if not self.built:
             return False
 
@@ -133,14 +127,7 @@ class SlClassicRenderer(BaseRenderer):
         self.skin.scroll_step(refresh_times)
         self.scroll_position = services.varinit.tg2.x
 
-        # End of ticker:
-        # - disruption/ad frames return to departures immediately;
-        # - custom text owns its complete cycle and rebuilds at the end;
-        # - ordinary departures keep recycling the same prepared bitmap until
-        #   the normal update interval is due.
         if services.varinit.tg2.x < -self.scroll_width:
-            # Message payloads (ads/disruptions) are intentionally one-shot and
-            # should return to departures immediately after their ticker pass.
             if bool(services.varinit.active_message):
                 return 'rebuild'
 
@@ -156,16 +143,11 @@ class SlClassicRenderer(BaseRenderer):
             if now > _scroll_timer + _update_delay:
                 return 'rebuild'
 
-            # Normal departures AND custom-text compositions reuse the already
-            # prepared Classic bitmap until the ordinary departure update timer
-            # is due. This prevents a custom-text cycle from causing a fresh
-            # network/data rebuild every pass.
             services.varinit.tg2.x = services.varinit.if_long
             self.scroll_position = services.varinit.if_long
             self.skin.reset_scroll_pacing()
             return True
 
-        # Normal timed departure refresh can happen during a long ticker too.
         if (not self.skin.custom_scroll_available()
                 and not bool(services.varinit.active_message)
                 and now > float(services.varinit.shared.get('scroll_timer', 0) or 0)
