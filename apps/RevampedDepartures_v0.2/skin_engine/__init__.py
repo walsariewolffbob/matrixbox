@@ -1,1 +1,0 @@
-"""DepartureBox shared skin framework."""
