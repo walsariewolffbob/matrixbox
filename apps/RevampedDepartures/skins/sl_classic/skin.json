@@ -1,0 +1,6 @@
+{
+  "id": "sl_classic",
+  "name": "SL Classic",
+  "version": "1.1",
+  "requires_departurebox": "0.2.1"
+}
