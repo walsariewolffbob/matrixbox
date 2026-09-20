@@ -1,4 +1,3 @@
-
 MANIFEST_VERSION = 1
 
 _REQUIRED_KEYS = (
@@ -9,6 +8,19 @@ _REQUIRED_KEYS = (
     'departure_count',
 )
 
+
+def _valid_skin_id(value):
+    text = str(value or '').strip()
+    if not text:
+        return False
+
+    allowed = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
+
+    for char in text:
+        if char not in allowed:
+            return False
+
+    return True
 
 
 def normalize_manifest(manifest):
@@ -44,6 +56,7 @@ def normalize_manifest(manifest):
     out['combined_defaults'] = dict(out.get('combined_defaults') or {})
     out['supported_display_sizes'] = tuple(out.get('supported_display_sizes') or ())
     out['optimized_display_sizes'] = tuple(out.get('optimized_display_sizes') or ())
+
     controls = dict(out.get('web_controls') or {})
     controls.setdefault('scroll_text', False)
     controls.setdefault('scroll_selector', False)
@@ -57,6 +70,7 @@ def normalize_manifest(manifest):
     controls.setdefault('line_minute_colour', False)
     controls.setdefault('line_display_default', 1)
     out['web_controls'] = controls
+
     return out
 
 
@@ -73,8 +87,10 @@ def validate_manifest(manifest):
 
     try:
         from skin_engine.versioning import departurebox_version, version_at_least, version_text
+
         required_departurebox = version_text(m.get('requires_departurebox', '0.2.1'))
         installed_departurebox = departurebox_version()
+
         if installed_departurebox is None:
             errors.append('DepartureBox version marker not found')
         elif not version_at_least(installed_departurebox, required_departurebox):
@@ -82,11 +98,12 @@ def validate_manifest(manifest):
                 'requires DepartureBox ' + required_departurebox +
                 ', installed DepartureBox is ' + installed_departurebox
             )
+
     except Exception as exc:
         errors.append('invalid requires_departurebox: ' + str(exc))
 
     skin_id = str(m.get('id', '')).strip()
-    if skin_id and not skin_id.replace('_', '').replace('-', '').isalnum():
+    if skin_id and not _valid_skin_id(skin_id):
         errors.append('invalid id')
 
     try:
